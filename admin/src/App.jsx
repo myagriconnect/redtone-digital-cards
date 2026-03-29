@@ -626,7 +626,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabaseAdmin.storage
+        const { error: upErr } = await supabase.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
         if (upErr) {
