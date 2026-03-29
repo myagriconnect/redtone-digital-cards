@@ -256,7 +256,7 @@ async function main() {
   console.log(`  ✅ /index.html (landing)`)
 
   // Netlify _redirects for /card/:slug → /:slug
-  const redirects = allStaff.map(s => `/card/${s.card_slug}  /${s.card_slug}/  200`).join('\n') + '\n/* /index.html 200\n'
+  const redirects = allStaff.map(s => `/card/${s.card_slug}  /${s.card_slug}/  200`).join('\n') + '\n'
   fs.writeFileSync(path.join(OUT,'_redirects'), redirects)
 
   // Count total size
