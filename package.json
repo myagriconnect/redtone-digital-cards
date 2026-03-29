@@ -4,7 +4,7 @@
   "description": "Static HTML card generator from Supabase",
   "scripts": {
     "generate": "node generate.js",
-    "build": "node generate.js",
+    "build": "npm install && node generate.js",
     "deploy": "wrangler deploy",
     "preview": "wrangler dev"
   },
