@@ -259,10 +259,20 @@ async function main() {
   const redirects = allStaff.map(s => `/card/${s.card_slug}  /${s.card_slug}/  200`).join('\n') + '\n'
   fs.writeFileSync(path.join(OUT,'_redirects'), redirects)
 
+  // Build admin React app into dist/admin/
+  const { execSync } = require('child_process')
+  console.log('\n🔨 Building admin portal...')
+  try {
+    execSync('npm install && npm run build', { cwd: path.join(__dirname, 'admin'), stdio: 'inherit' })
+    console.log('  ✅ /admin/ portal built')
+  } catch(e) {
+    console.log('  ⚠️  Admin build failed:', e.message)
+  }
+
   // Count total size
   const total = fs.readdirSync(OUT,{recursive:true}).filter(f=>f.endsWith('.html'))
     .reduce((sum,f)=>{ try{return sum+fs.statSync(path.join(OUT,f.toString())).size}catch{return sum} },0)
-  console.log(`\n🎉 Done! Total HTML: ${(total/1024).toFixed(1)} KB vs React bundle 400 KB`)
+  console.log(`\n🎉 Done! Total HTML: ${(total/1024).toFixed(1)} KB`)
   console.log(`📁 Output: ${OUT}`)
 }
 
