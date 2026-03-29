@@ -1,0 +1,51 @@
+{
+  "org": {
+    "id": "a1000000-0000-0000-0000-000000000001",
+    "name": "REDtone IoT",
+    "slug": "redtone-iot",
+    "website": "https://www.redtone.com"
+  },
+  "template": {
+    "primary_color": "#E8001D",
+    "secondary_color": "#0a0f1e",
+    "accent_color": "#C9973A",
+    "logo_url": null,
+    "footer_text": "REDtone IoT",
+    "website_display": "redtone.com"
+  },
+  "staff": [
+    {
+      "id": "d1000000-0001-0001-0001-000000000001",
+      "full_name": "Ali Imran Mohd Salleh",
+      "position": "Solution Architect Manager",
+      "email": "ali.imran@redtone.com",
+      "mobile": "+60142626082",
+      "card_slug": "ali-imran",
+      "photo_url": "https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/ali-imran.jpg",
+      "organizations": { "name": "REDtone IoT", "website": "https://www.redtone.com" },
+      "departments": { "name": "IoT Solutions" }
+    },
+    {
+      "id": "d2000000-0002-0002-0002-000000000002",
+      "full_name": "Mohd Saiful Akmal",
+      "position": "Senior IoT Engineer",
+      "email": "saiful.kadir@redtone.com",
+      "mobile": "+60194711243",
+      "card_slug": "saiful-akmal",
+      "photo_url": "https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/saiful-akmal.png",
+      "organizations": { "name": "REDtone IoT", "website": "https://www.redtone.com" },
+      "departments": { "name": "IoT Engineering" }
+    },
+    {
+      "id": "d3000000-0003-0003-0003-000000000003",
+      "full_name": "Ahmad Mustaqim Mohd Sabri",
+      "position": "Senior IoT Engineer",
+      "email": "mustaqim.sabri@redtone.com",
+      "mobile": "+60182880788",
+      "card_slug": "ahmad-mustaqim",
+      "photo_url": "https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/ahmad-mustaqim.png",
+      "organizations": { "name": "REDtone IoT", "website": "https://www.redtone.com" },
+      "departments": { "name": "IoT Engineering" }
+    }
+  ]
+}

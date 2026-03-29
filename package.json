@@ -1,0 +1,13 @@
+{
+  "name": "redtone-static-cards",
+  "version": "1.0.0",
+  "description": "Static HTML card generator from Supabase",
+  "scripts": {
+    "generate": "node generate.js",
+    "build": "node generate.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "qrcode": "^1.5.3"
+  }
+}
