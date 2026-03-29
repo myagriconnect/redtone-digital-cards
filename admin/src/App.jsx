@@ -597,7 +597,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     position: staff?.position || '',
     email: staff?.email || '',
     mobile: staff?.mobile || '',
-    department_id: staff?.department_id || '',
+    dept_id: staff?.dept_id || '',
     card_slug: staff?.card_slug || '',
     is_active: staff?.is_active ?? true,
   })
@@ -641,7 +641,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
         ...form,
         org_id: ORG_ID,
         photo_url,
-        department_id: form.department_id || null,
+        dept_id: form.dept_id || null,
       }
 
       let error
@@ -705,7 +705,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
           <div className="form-row">
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Department</label>
-              <select className="form-select" value={form.department_id} onChange={e => set('department_id', e.target.value)}>
+              <select className="form-select" value={form.dept_id} onChange={e => set('dept_id', e.target.value)}>
                 <option value="">— None —</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
