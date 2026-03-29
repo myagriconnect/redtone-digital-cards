@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from './supabase'
+import { supabase, supabaseAdmin } from './supabase'
 
 const ORG_ID = 'a1000000-0000-0000-0000-000000000001'
 
@@ -622,14 +622,17 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     try {
       let photo_url = staff?.photo_url || null
 
-      // Upload photo if selected (requires service role — will show instructions if fails)
+      // Upload photo using service role key (bypasses storage policies)
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabase.storage
+        const { error: upErr } = await supabaseAdmin.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
-        if (!upErr) {
+        if (upErr) {
+          console.error('Photo upload error:', upErr.message)
+          showToast('Photo upload failed — staff saved without photo', 'error')
+        } else {
           photo_url = `https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/${filename}`
         }
       }
