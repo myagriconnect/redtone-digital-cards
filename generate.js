@@ -5,7 +5,6 @@
 import { createClient } from '@supabase/supabase-js'
 import QRCode from 'qrcode'
 import fs from 'fs'
-import path from 'path'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://omuopaupndqxwsuyvtoy.supabase.co'
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
@@ -46,54 +45,35 @@ async function makeQR(text) {
   })
 }
 
-// ── Build vCard string ───────────────────────────────────────────────────────
-function makeVCard(s, orgName) {
-  return [
-    'BEGIN:VCARD',
-    'VERSION:3.0',
-    `FN:${s.full_name}`,
-    `N:${s.full_name.split(' ').slice(1).join(' ')};${s.full_name.split(' ')[0]};;;`,
-    `ORG:${orgName}`,
-    `TITLE:${s.position}`,
-    s.mobile ? `TEL;TYPE=CELL:${s.mobile}` : '',
-    s.email ? `EMAIL:${s.email}` : '',
-    s.photo_url ? `PHOTO;VALUE=URL:${s.photo_url}` : '',
-    'END:VCARD',
-  ].filter(Boolean).join('\n')
-}
-
 // ── Generate individual card HTML ────────────────────────────────────────────
 async function generateCardHTML(s, org) {
   const cardURL = `${SITE_URL}/${s.card_slug}/`
-  const vCard = makeVCard(s, org?.name || 'REDtone IoT')
   const qrDataURL = await makeQR(cardURL)
   const deptName = s.departments?.name || ''
-
-  // Logo handling
-  let logoHtml = ''
-  const logoUrl = org?.card_templates?.[0]?.logo_url
-  if (logoUrl) {
-    logoHtml = `<img src="${logoUrl}" alt="${org.name}" class="org-logo" />`
-  }
+  const orgName  = org?.name || 'REDtone IoT'
+  const logoUrl  = org?.card_templates?.[0]?.logo_url || ''
+  const initials = s.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${s.full_name} — ${org?.name || 'REDtone IoT'}</title>
+  <title>${s.full_name} — ${orgName}</title>
   <meta property="og:title" content="${s.full_name}"/>
   <meta property="og:description" content="${s.position}${deptName ? ' · ' + deptName : ''}"/>
   ${s.photo_url ? `<meta property="og:image" content="${s.photo_url}"/>` : ''}
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --red: #E8001D;
-      --gold: #C9973A;
-      --dark: #060b16;
-      --card-bg: #0d1520;
-      --text: #f0f2f7;
-      --muted: #8892a4;
+      --red:    #E8001D;
+      --gold:   #C9973A;
+      --dark:   #060b16;
+      --card-bg:#0d1520;
+      --text:   #f0f2f7;
+      --muted:  #8892a4;
     }
     html, body {
       min-height: 100vh;
@@ -106,7 +86,7 @@ async function generateCardHTML(s, org) {
       background-image:
         radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,0,29,0.12) 0%, transparent 60%);
     }
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap');
+    /* ── Card shell ── */
     .card {
       background: var(--card-bg);
       border-radius: 24px;
@@ -119,16 +99,43 @@ async function generateCardHTML(s, org) {
     }
     @keyframes fadeUp {
       from { opacity:0; transform:translateY(20px); }
-      to   { opacity:1; transform:translateY(0); }
+      to   { opacity:1; transform:translateY(0);    }
     }
-    .card-header {
+
+    /* ── Header: logo bar ── */
+    .card-logo-bar {
       background: linear-gradient(160deg, #0d1a2e 0%, #060b16 100%);
-      padding: 32px 28px 24px;
-      text-align: center;
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      border-bottom: 1px solid rgba(232,0,29,0.12);
+    }
+    .card-logo-bar img {
+      height: 30px;
+      width: auto;
+      display: block;
+      filter: brightness(1.1);
+    }
+    .card-logo-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 2px;
+      color: var(--text);
+    }
+    .card-logo-text span { color: var(--red); }
+
+    /* ── Header: identity row (photo left, info right) ── */
+    .card-identity {
+      background: linear-gradient(160deg, #0d1a2e 0%, #060b16 100%);
+      padding: 20px 24px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
       border-bottom: 1px solid rgba(232,0,29,0.15);
       position: relative;
     }
-    .card-header::after {
+    .card-identity::after {
       content: '';
       position: absolute;
       bottom: 0; left: 50%;
@@ -136,22 +143,13 @@ async function generateCardHTML(s, org) {
       width: 60px; height: 2px;
       background: linear-gradient(90deg, transparent, var(--red), transparent);
     }
-    .org-logo {
-      height: 36px;
-      width: auto;
-      margin-bottom: 20px;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-      filter: brightness(1.1);
-    }
     .photo-ring {
-      width: 96px; height: 96px;
+      width: 80px; height: 80px;
       border-radius: 50%;
-      margin: 0 auto 16px;
       padding: 3px;
       background: linear-gradient(135deg, var(--red), var(--gold));
-      box-shadow: 0 0 24px rgba(232,0,29,0.3);
+      box-shadow: 0 0 20px rgba(232,0,29,0.35);
+      flex-shrink: 0;
     }
     .photo-ring img {
       width: 100%; height: 100%;
@@ -159,6 +157,7 @@ async function generateCardHTML(s, org) {
       object-fit: cover;
       object-position: center top;
       border: 3px solid var(--card-bg);
+      display: block;
     }
     .photo-initials {
       width: 100%; height: 100%;
@@ -169,36 +168,42 @@ async function generateCardHTML(s, org) {
       align-items: center;
       justify-content: center;
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 32px;
+      font-size: 26px;
       color: var(--red);
     }
+    .identity-info { flex: 1; min-width: 0; }
     .staff-name {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 26px;
-      letter-spacing: 2px;
+      font-size: 22px;
+      letter-spacing: 1.5px;
       color: var(--text);
-      margin-bottom: 4px;
+      line-height: 1.15;
+      margin-bottom: 5px;
+      word-break: break-word;
     }
     .staff-position {
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 600;
       color: var(--red);
       text-transform: uppercase;
       letter-spacing: 1.5px;
       margin-bottom: 4px;
     }
-    .staff-dept {
+    .staff-org-dept {
       font-size: 11px;
-      color: var(--gold);
-      letter-spacing: 1px;
-      margin-bottom: 0;
+      color: var(--muted);
+      letter-spacing: 0.5px;
     }
-    .card-body { padding: 24px 28px; }
+    .staff-org-dept .dept-sep { color: rgba(255,255,255,0.2); margin: 0 4px; }
+    .staff-org-dept .dept-name { color: var(--gold); }
+
+    /* ── Contact items ── */
+    .card-body { padding: 20px 24px; }
     .contact-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 0;
+      gap: 14px;
+      padding: 11px 0;
       border-bottom: 1px solid rgba(255,255,255,0.04);
       text-decoration: none;
       color: var(--text);
@@ -215,10 +220,12 @@ async function generateCardHTML(s, org) {
       flex-shrink: 0;
     }
     .contact-icon svg { width: 16px; height: 16px; color: var(--red); }
-    .contact-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-    .contact-value { font-size: 14px; font-weight: 500; }
+    .contact-label  { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .contact-value  { font-size: 13px; font-weight: 500; }
+
+    /* ── Footer: QR + Save button ── */
     .card-footer {
-      padding: 20px 28px 28px;
+      padding: 16px 24px 28px;
       border-top: 1px solid rgba(255,255,255,0.04);
       text-align: center;
     }
@@ -237,7 +244,7 @@ async function generateCardHTML(s, org) {
       margin-bottom: 16px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    .qr-wrap img { width: 160px; height: 160px; display: block; }
+    .qr-wrap img { width: 150px; height: 150px; display: block; }
     .save-btn {
       display: flex;
       align-items: center;
@@ -259,31 +266,42 @@ async function generateCardHTML(s, org) {
     }
     .save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(232,0,29,0.4); }
     .save-btn svg { width: 16px; height: 16px; }
-    /* skeleton loader */
-    .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
 </head>
 <body>
-  <div class="card" id="card">
-    <div class="card-header">
-      ${logoHtml}
+  <div class="card">
+
+    <!-- Logo bar -->
+    <div class="card-logo-bar">
+      ${logoUrl
+        ? `<img src="${logoUrl}" alt="${orgName}" id="orgLogo"/>`
+        : `<div class="card-logo-text"><span>RED</span>tone</div>`
+      }
+    </div>
+
+    <!-- Identity row: photo left, info right -->
+    <div class="card-identity">
       <div class="photo-ring" id="photoRing">
         ${s.photo_url
           ? `<img src="${s.photo_url}" alt="${s.full_name}" id="staffPhoto"/>`
-          : `<div class="photo-initials" id="staffInitials">${s.full_name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase()}</div>`
+          : `<div class="photo-initials" id="staffInitials">${initials}</div>`
         }
       </div>
-      <div class="staff-name" id="staffName">${s.full_name}</div>
-      <div class="staff-position" id="staffPosition">${s.position}</div>
-      ${deptName ? `<div class="staff-dept" id="staffDept">${deptName}</div>` : '<div class="staff-dept" id="staffDept"></div>'}
+      <div class="identity-info">
+        <div class="staff-name"     id="staffName">${s.full_name}</div>
+        <div class="staff-position" id="staffPosition">${s.position}</div>
+        <div class="staff-org-dept" id="staffOrgDept">
+          ${orgName}${deptName ? `<span class="dept-sep">·</span><span class="dept-name" id="staffDept">${deptName}</span>` : ''}
+        </div>
+      </div>
     </div>
 
-    <div class="card-body" id="contactBody">
+    <!-- Contact details -->
+    <div class="card-body">
       ${s.mobile ? `
-      <a class="contact-item" href="tel:${s.mobile}">
+      <a class="contact-item" href="tel:${s.mobile}" id="mobileLink">
         <div class="contact-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
           </svg>
         </div>
@@ -293,9 +311,9 @@ async function generateCardHTML(s, org) {
         </div>
       </a>` : ''}
       ${s.email ? `
-      <a class="contact-item" href="mailto:${s.email}">
+      <a class="contact-item" href="mailto:${s.email}" id="emailLink">
         <div class="contact-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
             <polyline points="22,6 12,13 2,6"/>
           </svg>
@@ -307,13 +325,14 @@ async function generateCardHTML(s, org) {
       </a>` : ''}
     </div>
 
+    <!-- QR + Save -->
     <div class="card-footer">
       <div class="qr-label">Scan to view digital card</div>
       <div class="qr-wrap">
-        <img src="${qrDataURL}" alt="QR Code" id="qrCode"/>
+        <img src="${qrDataURL}" alt="QR Code"/>
       </div>
       <button class="save-btn" onclick="saveContact()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
           <path d="M23 21v-2a4 4 0 00-3-3.87"/>
@@ -325,87 +344,75 @@ async function generateCardHTML(s, org) {
   </div>
 
   <script>
-    // ── Live fetch from Supabase — reflects admin edits instantly ──────────────
-    const SUPABASE_URL = '${SUPABASE_URL}'
-    const ANON_KEY = '${SUPABASE_ANON_KEY}'
-    const CARD_SLUG = '${s.card_slug}'
+    // ── Live fetch: reflects admin edits instantly, no rebuild needed ──────────
+    const SUPABASE_URL  = '${SUPABASE_URL}'
+    const ANON_KEY      = '${SUPABASE_ANON_KEY}'
+    const CARD_SLUG     = '${s.card_slug}'
 
     async function refreshCard() {
       try {
         const res = await fetch(
-          SUPABASE_URL + '/rest/v1/staff?card_slug=eq.' + CARD_SLUG + '&select=*,departments(name)',
-          { headers: { 'apikey': ANON_KEY, 'Authorization': 'Bearer ' + ANON_KEY } }
+          SUPABASE_URL + '/rest/v1/staff?card_slug=eq.' + CARD_SLUG +
+          '&select=*,departments(name)',
+          { headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + ANON_KEY } }
         )
-        const [data] = await res.json()
-        if (!data) return
+        const [d] = await res.json()
+        if (!d) return
+        window._staffData = d
 
-        // Update name
-        const nameEl = document.getElementById('staffName')
-        if (nameEl) nameEl.textContent = data.full_name
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val }
+        set('staffName',     d.full_name)
+        set('staffPosition', d.position)
+        set('staffMobile',   d.mobile || '')
+        set('staffEmail',    d.email  || '')
 
-        // Update position
-        const posEl = document.getElementById('staffPosition')
-        if (posEl) posEl.textContent = data.position
-
-        // Update dept
-        const deptEl = document.getElementById('staffDept')
-        if (deptEl) deptEl.textContent = data.departments?.name || ''
-
-        // Update mobile
-        const mobileEl = document.getElementById('staffMobile')
-        if (mobileEl) {
-          mobileEl.textContent = data.mobile || ''
-          mobileEl.closest('a').href = 'tel:' + (data.mobile || '')
+        const dept = d.departments?.name || ''
+        const orgDept = document.getElementById('staffOrgDept')
+        if (orgDept) {
+          orgDept.innerHTML = '${orgName}' +
+            (dept ? '<span class="dept-sep">·</span><span class="dept-name">' + dept + '</span>' : '')
         }
 
-        // Update email
-        const emailEl = document.getElementById('staffEmail')
-        if (emailEl) {
-          emailEl.textContent = data.email || ''
-          emailEl.closest('a').href = 'mailto:' + (data.email || '')
-        }
+        const mobileLink = document.getElementById('mobileLink')
+        if (mobileLink && d.mobile) mobileLink.href = 'tel:' + d.mobile
 
-        // Update photo
-        const photoRing = document.getElementById('photoRing')
-        if (data.photo_url && photoRing) {
-          photoRing.innerHTML = '<img src="' + data.photo_url + '" alt="' + data.full_name + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid var(--card-bg)"/>'
-        }
+        const emailLink = document.getElementById('emailLink')
+        if (emailLink && d.email) emailLink.href = 'mailto:' + d.email
 
-        // Store latest data for vCard
-        window._staffData = data
-      } catch (e) {
-        // Silently fail — static baked data remains visible
-      }
+        if (d.photo_url) {
+          const ring = document.getElementById('photoRing')
+          if (ring) ring.innerHTML =
+            '<img src="' + d.photo_url + '" alt="' + d.full_name +
+            '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid var(--card-bg);display:block"/>'
+        }
+      } catch (_) { /* silently keep baked-in data */ }
     }
 
-    // Save contact as vCard
     function saveContact() {
       const d = window._staffData || {
         full_name: '${s.full_name}',
-        position: '${s.position}',
-        mobile: '${s.mobile || ''}',
-        email: '${s.email || ''}',
+        position:  '${s.position}',
+        mobile:    '${s.mobile  || ''}',
+        email:     '${s.email   || ''}',
         photo_url: '${s.photo_url || ''}'
       }
-      const org = '${org?.name || 'REDtone IoT'}'
       const vcf = [
         'BEGIN:VCARD', 'VERSION:3.0',
-        'FN:' + d.full_name,
-        'ORG:' + org,
+        'FN:'    + d.full_name,
+        'ORG:'   + '${orgName}',
         'TITLE:' + d.position,
-        d.mobile ? 'TEL;TYPE=CELL:' + d.mobile : '',
-        d.email ? 'EMAIL:' + d.email : '',
+        d.mobile    ? 'TEL;TYPE=CELL:' + d.mobile   : '',
+        d.email     ? 'EMAIL:'         + d.email    : '',
         d.photo_url ? 'PHOTO;VALUE=URL:' + d.photo_url : '',
         'END:VCARD'
       ].filter(Boolean).join('\\n')
-      const blob = new Blob([vcf], { type: 'text/vcard' })
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = d.full_name.replace(/\\s+/g, '_') + '.vcf'
+      const a = Object.assign(document.createElement('a'), {
+        href:     URL.createObjectURL(new Blob([vcf], { type: 'text/vcard' })),
+        download: d.full_name.replace(/\\s+/g, '_') + '.vcf'
+      })
       a.click()
     }
 
-    // Fetch live data on page load
     refreshCard()
   </script>
 </body>
@@ -414,15 +421,18 @@ async function generateCardHTML(s, org) {
 
 // ── Generate landing page ────────────────────────────────────────────────────
 function generateLandingHTML(staff, orgs) {
-  const org = orgs?.[0]
-  const logoUrl = org?.card_templates?.[0]?.logo_url
+  const org     = orgs?.[0]
+  const orgName = org?.name || 'REDtone IoT'
+  const logoUrl = org?.card_templates?.[0]?.logo_url || ''
 
-  const cards = staff.map(s => `
-    <a class="staff-card" href="/${s.card_slug}/">
+  const cards = staff.map((s, i) => {
+    const initials = s.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    return `
+    <a class="staff-card" href="/${s.card_slug}/" style="animation-delay:${i * 0.06}s">
       <div class="avatar">
         ${s.photo_url
           ? `<img src="${s.photo_url}" alt="${s.full_name}"/>`
-          : `<span>${s.full_name.split(' ').map(n=>n[0]).slice(0,2).join('').toUpperCase()}</span>`
+          : `<span>${initials}</span>`
         }
       </div>
       <div class="info">
@@ -430,17 +440,20 @@ function generateLandingHTML(staff, orgs) {
         <div class="pos">${s.position}</div>
         ${s.departments?.name ? `<div class="dept">${s.departments.name}</div>` : ''}
       </div>
-      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="9 18 15 12 9 6"/>
       </svg>
-    </a>`).join('')
+    </a>`
+  }).join('')
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${org?.name || 'REDtone IoT'} — Digital Cards</title>
+  <title>${orgName} — Digital Cards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
     body {
@@ -448,56 +461,53 @@ function generateLandingHTML(staff, orgs) {
       background: #060b16;
       font-family: 'Outfit', -apple-system, sans-serif;
       color: #f0f2f7;
-      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,0,29,0.1) 0%, transparent 60%);
+      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,0,29,0.10) 0%, transparent 60%);
     }
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap');
     .header {
       text-align: center;
-      padding: 48px 24px 32px;
+      padding: 44px 24px 28px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
-    .header img { height: 40px; margin-bottom: 16px; }
-    .header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 3px; color: #f0f2f7; }
-    .header p { font-size: 13px; color: #8892a4; margin-top: 4px; letter-spacing: 1px; }
-    .list { max-width: 480px; margin: 32px auto; padding: 0 20px 48px; }
+    .header img  { height: 36px; margin-bottom: 14px; display: block; margin-left: auto; margin-right: auto; }
+    .header-logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; margin-bottom: 14px; }
+    .header-logo-text span { color: #E8001D; }
+    .header h1   { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 3px; color: #f0f2f7; }
+    .header p    { font-size: 12px; color: #8892a4; margin-top: 4px; letter-spacing: 1px; }
+    .list { max-width: 480px; margin: 28px auto; padding: 0 20px 48px; }
     .staff-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      display: flex; align-items: center; gap: 16px;
       background: #0f1824;
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 16px;
-      padding: 16px 20px;
-      margin-bottom: 12px;
-      text-decoration: none;
-      color: inherit;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      text-decoration: none; color: inherit;
       transition: all 0.2s;
       animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
     }
     .staff-card:hover { border-color: rgba(232,0,29,0.4); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     .avatar {
-      width: 52px; height: 52px;
-      border-radius: 50%;
-      border: 2px solid #E8001D;
-      overflow: hidden;
-      flex-shrink: 0;
+      width: 50px; height: 50px; border-radius: 50%;
+      border: 2px solid #E8001D; overflow: hidden; flex-shrink: 0;
       background: linear-gradient(135deg, #1e2e50, #0d1a2e);
       display: flex; align-items: center; justify-content: center;
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 18px; color: #E8001D;
+      font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: #E8001D;
     }
     .avatar img { width:100%; height:100%; object-fit:cover; object-position:center top; }
     .info { flex: 1; min-width: 0; }
-    .name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pos { font-size: 12px; color: #8892a4; margin-top: 2px; }
-    .dept { font-size: 11px; color: #C9973A; margin-top: 2px; }
-    .arrow { width: 18px; height: 18px; color: #8892a4; flex-shrink: 0; }
+    .name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pos  { font-size: 11px; color: #8892a4; margin-top: 2px; }
+    .dept { font-size: 10px; color: #C9973A; margin-top: 2px; }
+    .arrow { width: 16px; height: 16px; color: #8892a4; flex-shrink: 0; }
   </style>
 </head>
 <body>
   <div class="header">
-    ${logoUrl ? `<img src="${logoUrl}" alt="${org?.name}"/>` : `<h1><span style="color:#E8001D">RED</span>tone IoT</h1>`}
+    ${logoUrl
+      ? `<img src="${logoUrl}" alt="${orgName}"/>`
+      : `<div class="header-logo-text"><span>RED</span>tone</div>`
+    }
     <h1>Digital Cards</h1>
     <p>${staff.length} Team Member${staff.length !== 1 ? 's' : ''}</p>
   </div>
@@ -516,19 +526,17 @@ async function main() {
   let totalSize = 0
   for (const s of staff) {
     const html = await generateCardHTML(s, org)
-    const dir = `./dist/${s.card_slug}`
+    const dir  = `./dist/${s.card_slug}`
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(`${dir}/index.html`, html)
     totalSize += html.length
-    console.log(`  ✅  /${s.card_slug}/  (${(html.length/1024).toFixed(1)} KB)`)
+    console.log(`  ✅  /${s.card_slug}/  (${(html.length / 1024).toFixed(1)} KB)`)
   }
 
-  // Landing page
   const landing = generateLandingHTML(staff, orgs)
   fs.writeFileSync('./dist/index.html', landing)
-  console.log(`  ✅  / (landing)  (${(landing.length/1024).toFixed(1)} KB)`)
-
-  console.log(`\n🎉 Done! ${staff.length} cards + landing page. Total: ${(totalSize/1024).toFixed(1)} KB`)
+  console.log(`  ✅  / (landing)  (${(landing.length / 1024).toFixed(1)} KB)`)
+  console.log(`\n🎉 Done! ${staff.length} cards + landing page. Total: ${(totalSize / 1024).toFixed(1)} KB`)
 }
 
 main().catch(e => { console.error('❌', e.message); process.exit(1) })
