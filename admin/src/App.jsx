@@ -844,7 +844,9 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
   }
 
   const parseCSV = (text) => {
-    const lines = text.trim().split('\n')
+    // Strip BOM (added by Excel when saving as CSV) and normalise line endings
+    const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const lines = clean.trim().split('\n')
     if (lines.length < 2) return []
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
     return lines.slice(1).filter(l => l.trim()).map(line => {
@@ -899,27 +901,51 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
   const toSkip = rows.filter(r => r.action === 'skip')
   const duplicates = rows.filter(r => r.isDuplicate)
 
+  // Resolve dept name → id: check cache → DB lookup (ilike) → insert → re-fetch on conflict
+  const resolveDept = async (deptName, deptCache) => {
+    const lower = deptName.toLowerCase().trim()
+    // 1. Check local cache first (avoids repeated DB calls in same import batch)
+    const cached = deptCache.find(d => d.name.toLowerCase() === lower)
+    if (cached) return cached.id
+    // 2. Case-insensitive lookup directly in DB (catches mismatches the cache might miss)
+    const { data: found } = await supabase
+      .from('departments')
+      .select('id, name')
+      .eq('org_id', ORG_ID)
+      .ilike('name', deptName.trim())
+      .maybeSingle()
+    if (found) { deptCache.push(found); return found.id }
+    // 3. Insert new department
+    const { data: created, error: insertErr } = await supabase
+      .from('departments')
+      .insert({ name: deptName.trim(), org_id: ORG_ID })
+      .select().single()
+    if (created) { deptCache.push(created); return created.id }
+    // 4. If insert failed (e.g. unique constraint race), try fetching once more
+    if (insertErr) {
+      const { data: retry } = await supabase
+        .from('departments')
+        .select('id, name')
+        .eq('org_id', ORG_ID)
+        .ilike('name', deptName.trim())
+        .maybeSingle()
+      if (retry) { deptCache.push(retry); return retry.id }
+    }
+    return null
+  }
+
   const handleImport = async () => {
     if (toImport.length === 0) { showToast('No rows selected to import', 'error'); return }
     setImporting(true)
     let success = 0, failed = 0
-    // Cache fresh departments so new ones created mid-import are reused
-    let deptCache = [...departments]
+    // Shared cache so departments created mid-import are reused for subsequent rows
+    const deptCache = [...departments]
 
     for (const row of toImport) {
       try {
         let resolvedDeptId = null
-        if (row.department_name) {
-          const existing = deptCache.find(d => d.name.toLowerCase() === row.department_name.toLowerCase())
-          if (existing) {
-            resolvedDeptId = existing.id
-          } else {
-            const { data: newDept } = await supabase
-              .from('departments')
-              .insert({ name: row.department_name, org_id: ORG_ID })
-              .select().single()
-            if (newDept) { resolvedDeptId = newDept.id; deptCache.push(newDept) }
-          }
+        if (row.department_name.trim()) {
+          resolvedDeptId = await resolveDept(row.department_name, deptCache)
         }
 
         const payload = {
