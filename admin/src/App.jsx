@@ -536,6 +536,63 @@ const css = `
     .form-row { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: 1fr; }
   }
+
+  /* ── Search bar ── */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px; height: 16px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px 11px 40px;
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--red); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* ── Department group ── */
+  .dept-group { margin-bottom: 28px; }
+  .dept-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s;
+  }
+  .dept-header:hover { border-color: var(--border-hover); }
+  .dept-header-left { display: flex; align-items: center; gap: 10px; }
+  .dept-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+  .dept-name-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--text); }
+  .dept-count {
+    font-size: 11px; color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 8px;
+  }
+  .dept-chevron { width: 16px; height: 16px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+  .dept-chevron.open { transform: rotate(180deg); }
 `
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
@@ -748,7 +805,9 @@ function StaffPage({ showToast }) {
   const [staff, setStaff] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(null) // null | 'add' | staffObj
+  const [modal, setModal] = useState(null)
+  const [search, setSearch] = useState('')
+  const [collapsed, setCollapsed] = useState({})
 
   const load = async () => {
     setLoading(true)
@@ -772,6 +831,27 @@ function StaffPage({ showToast }) {
   }
 
   const initials = (name) => name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()
+  const toggleCollapse = (dept) => setCollapsed(prev => ({ ...prev, [dept]: !prev[dept] }))
+
+  // Filter by search query
+  const filtered = staff.filter(s => {
+    const q = search.toLowerCase()
+    return (
+      s.full_name.toLowerCase().includes(q) ||
+      (s.departments?.name || '').toLowerCase().includes(q) ||
+      s.position.toLowerCase().includes(q)
+    )
+  })
+
+  // Group filtered staff by department
+  const grouped = filtered.reduce((acc, s) => {
+    const dept = s.departments?.name || 'Uncategorized'
+    if (!acc[dept]) acc[dept] = []
+    acc[dept].push(s)
+    return acc
+  }, {})
+
+  const deptKeys = Object.keys(grouped).sort()
 
   return (
     <>
@@ -800,45 +880,81 @@ function StaffPage({ showToast }) {
         </div>
       </div>
 
+      {/* Search bar */}
+      <div className="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          className="search-input"
+          placeholder="Search by name, position or department..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
       {loading ? (
         <div className="empty-state"><div className="spinner" style={{margin:'0 auto'}}/></div>
-      ) : staff.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="empty-state">
           {Icon.users}
-          <p>No staff yet. Add your first staff member!</p>
+          <p>{search ? `No results for "${search}"` : 'No staff yet. Add your first staff member!'}</p>
         </div>
       ) : (
-        <div className="staff-grid">
-          {staff.map((s, i) => (
-            <div className="staff-card" key={s.id} style={{ animationDelay: `${i * 0.05}s` }}>
-              <div className="staff-card-top">
-                <div className="staff-avatar">
-                  {s.photo_url
-                    ? <img src={s.photo_url} alt={s.full_name}/>
-                    : initials(s.full_name)
-                  }
+        deptKeys.map(dept => {
+          const members = grouped[dept]
+          const isOpen = !collapsed[dept]
+          return (
+            <div className="dept-group" key={dept}>
+              {/* Department header — click to collapse/expand */}
+              <div className="dept-header" onClick={() => toggleCollapse(dept)}>
+                <div className="dept-header-left">
+                  <div className="dept-dot"/>
+                  <span className="dept-name-label">{dept}</span>
+                  <span className="dept-count">{members.length} staff</span>
                 </div>
-                <div style={{flex:1, minWidth:0}}>
-                  <div className="staff-name" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.full_name}</div>
-                  <div className="staff-pos">{s.position}</div>
-                  {s.departments && <div className="staff-dept">{s.departments.name}</div>}
+                <svg className={`dept-chevron ${isOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+
+              {/* Staff cards — hidden when collapsed */}
+              {isOpen && (
+                <div className="staff-grid">
+                  {members.map((s, i) => (
+                    <div className="staff-card" key={s.id} style={{ animationDelay: `${i * 0.05}s` }}>
+                      <div className="staff-card-top">
+                        <div className="staff-avatar">
+                          {s.photo_url
+                            ? <img src={s.photo_url} alt={s.full_name}/>
+                            : initials(s.full_name)
+                          }
+                        </div>
+                        <div style={{flex:1, minWidth:0}}>
+                          <div className="staff-name" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.full_name}</div>
+                          <div className="staff-pos">{s.position}</div>
+                          {s.departments && <div className="staff-dept">{s.departments.name}</div>}
+                        </div>
+                        <span className="badge badge-active">Active</span>
+                      </div>
+                      <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px',fontFamily:'monospace'}}>
+                        /{s.card_slug}
+                      </div>
+                      <div className="staff-card-actions">
+                        <button className="btn-edit" onClick={() => setModal(s)}>
+                          {Icon.edit} Edit
+                        </button>
+                        <button className="btn-delete" onClick={() => handleDelete(s)}>
+                          {Icon.trash}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <span className="badge badge-active">Active</span>
-              </div>
-              <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px',fontFamily:'monospace'}}>
-                /{s.card_slug}
-              </div>
-              <div className="staff-card-actions">
-                <button className="btn-edit" onClick={() => setModal(s)}>
-                  {Icon.edit} Edit
-                </button>
-                <button className="btn-delete" onClick={() => handleDelete(s)}>
-                  {Icon.trash}
-                </button>
-              </div>
+              )}
             </div>
-          ))}
-        </div>
+          )
+        })
       )}
 
       {modal && (
