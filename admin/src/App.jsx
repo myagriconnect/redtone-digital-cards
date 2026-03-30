@@ -598,6 +598,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     email: staff?.email || '',
     mobile: staff?.mobile || '',
     dept_id: staff?.dept_id || '',
+    department_name: staff?.departments?.name || '',
     card_slug: staff?.card_slug || '',
     is_active: staff?.is_active ?? true,
   })
@@ -636,12 +637,28 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
           photo_url = `https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/${filename}`
         }
       }
-
+// Resolve department name → dept_id (create if new)
+let resolvedDeptId = null
+if (form.department_name.trim()) {
+  const existing = departments.find(
+    d => d.name.toLowerCase() === form.department_name.toLowerCase().trim()
+  )
+  if (existing) {
+    resolvedDeptId = existing.id
+  } else {
+    const { data: newDept } = await supabase
+      .from('departments')
+      .insert({ name: form.department_name.trim(), org_id: ORG_ID })
+      .select()
+      .single()
+    if (newDept) resolvedDeptId = newDept.id
+  }
+}
       const payload = {
         ...form,
         org_id: ORG_ID,
         photo_url,
-        dept_id: form.dept_id || null,
+        dept_id: resolvedDeptId,
       }
 
       let error
@@ -705,10 +722,9 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
           <div className="form-row">
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Department</label>
-              <select className="form-select" value={form.dept_id} onChange={e => set('dept_id', e.target.value)}>
-                <option value="">— None —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <input className="form-input" list="dept-suggestions" value={form.department_name} onChange={e => set('department_name', e.target.value)} placeholder="e.g. Technology Division"/>   
+              <datalist id="dept-suggestions"> {departments.map(d => <option key={d.id} value={d.name}/>)}
+              </datalist>
             </div>
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Card Slug</label>
