@@ -654,13 +654,13 @@ if (form.department_name.trim()) {
     if (newDept) resolvedDeptId = newDept.id
   }
 }
+      const { department_name, dept_id: _d, ...formData } = form
       const payload = {
-        ...form,
-        org_id: ORG_ID,
-        photo_url,
-        dept_id: resolvedDeptId,
+      ...formData,
+      org_id: ORG_ID,
+      photo_url,
+      dept_id: resolvedDeptId,
       }
-
       let error
       if (isEdit) {
         ;({ error } = await supabase.from('staff').update(payload).eq('id', staff.id))
