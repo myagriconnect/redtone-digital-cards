@@ -593,6 +593,29 @@ const css = `
   }
   .dept-chevron { width: 16px; height: 16px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
   .dept-chevron.open { transform: rotate(180deg); }
+
+  /* ── CSV Import ── */
+  .btn-secondary { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--border); border-radius:10px; padding:10px 16px; color:var(--muted); font-family:'Outfit',sans-serif; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .btn-secondary:hover { border-color:var(--text); color:var(--text); }
+  .btn-secondary svg { width:15px; height:15px; flex-shrink:0; }
+  .import-drop-zone { border:2px dashed var(--border); border-radius:12px; padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .import-drop-zone:hover, .import-drop-zone.drag-over { border-color:var(--red); background:var(--red-dim); }
+  .import-drop-icon { width:40px; height:40px; margin:0 auto 14px; opacity:0.4; display:block; }
+  .import-drop-title { font-size:14px; font-weight:600; margin-bottom:6px; }
+  .import-drop-sub { font-size:12px; color:var(--muted); }
+  .import-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .import-preview-table th { text-align:left; padding:8px 10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+  .import-preview-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .import-preview-table tr.is-duplicate td { background:rgba(232,0,29,0.03); }
+  .import-preview-table tr.is-skip td { opacity:0.4; }
+  .import-row-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; letter-spacing:0.5px; }
+  .import-row-badge.new { background:var(--green-dim); color:var(--green); border:1px solid rgba(34,197,94,0.2); }
+  .import-row-select { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px; padding:4px 8px; color:var(--text); font-size:11px; cursor:pointer; outline:none; }
+  .import-row-select:focus { border-color:var(--red); }
+  .import-row-select option { background:#0f1824; }
+  .import-summary { display:flex; align-items:center; gap:20px; padding:12px 16px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid var(--border); flex-wrap:wrap; }
+  .import-summary-item { font-size:12px; color:var(--muted); }
+  .import-summary-item span { color:var(--text); font-weight:600; }
 `
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
@@ -604,6 +627,8 @@ const Icon = {
   x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   camera: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
   dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  upload: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+  download: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────────── */
@@ -800,6 +825,239 @@ if (form.department_name.trim()) {
   )
 }
 
+/* ─── CSV Import Modal ───────────────────────────────────────────────── */
+function CSVImportModal({ existingStaff, departments, onClose, onImported, showToast }) {
+  const fileRef = useRef()
+  const [rows, setRows] = useState([])
+  const [importing, setImporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+
+  const slugify = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
+  const downloadTemplate = () => {
+    const csv = 'name,position,email,mobile,department\nAhmad Bin Abdullah,Senior Engineer,ahmad@redtone.com,+60123456789,Technology Division'
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'staff_import_template.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const parseCSV = (text) => {
+    const lines = text.trim().split('\n')
+    if (lines.length < 2) return []
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+    return lines.slice(1).filter(l => l.trim()).map(line => {
+      const cols = []
+      let cur = '', inQ = false
+      for (const c of line) {
+        if (c === '"') { inQ = !inQ; continue }
+        if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue }
+        cur += c
+      }
+      cols.push(cur.trim())
+      const row = {}
+      headers.forEach((h, i) => { row[h] = (cols[i] || '').replace(/"/g, '') })
+      return row
+    })
+  }
+
+  const processFile = (file) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const parsed = parseCSV(e.target.result)
+      const withMeta = parsed.map(row => {
+        const name = (row.name || row.full_name || '').trim()
+        const email = (row.email || '').toLowerCase().trim()
+        const isDuplicate = existingStaff.some(s => s.email?.toLowerCase() === email && email !== '')
+        return {
+          full_name: name,
+          position: (row.position || '').trim(),
+          email,
+          mobile: (row.mobile || row.phone || '').trim(),
+          department_name: (row.department || row.dept || '').trim(),
+          card_slug: slugify(name),
+          isDuplicate,
+          action: isDuplicate ? 'skip' : 'import',
+        }
+      })
+      setRows(withMeta)
+    }
+    reader.readAsText(file)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault(); setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) processFile(file)
+  }
+
+  const setRowAction = (idx, action) =>
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, action } : r))
+
+  const toImport = rows.filter(r => r.action !== 'skip')
+  const toSkip = rows.filter(r => r.action === 'skip')
+  const duplicates = rows.filter(r => r.isDuplicate)
+
+  const handleImport = async () => {
+    if (toImport.length === 0) { showToast('No rows selected to import', 'error'); return }
+    setImporting(true)
+    let success = 0, failed = 0
+    // Cache fresh departments so new ones created mid-import are reused
+    let deptCache = [...departments]
+
+    for (const row of toImport) {
+      try {
+        let resolvedDeptId = null
+        if (row.department_name) {
+          const existing = deptCache.find(d => d.name.toLowerCase() === row.department_name.toLowerCase())
+          if (existing) {
+            resolvedDeptId = existing.id
+          } else {
+            const { data: newDept } = await supabase
+              .from('departments')
+              .insert({ name: row.department_name, org_id: ORG_ID })
+              .select().single()
+            if (newDept) { resolvedDeptId = newDept.id; deptCache.push(newDept) }
+          }
+        }
+
+        const payload = {
+          full_name: row.full_name,
+          position: row.position,
+          email: row.email,
+          mobile: row.mobile,
+          dept_id: resolvedDeptId,
+          card_slug: row.card_slug,
+          org_id: ORG_ID,
+          is_active: true,
+        }
+
+        if (row.action === 'overwrite') {
+          const match = existingStaff.find(s => s.email?.toLowerCase() === row.email)
+          if (match) {
+            const { error } = await supabase.from('staff').update(payload).eq('id', match.id)
+            if (error) throw error
+          }
+        } else {
+          const { error } = await supabase.from('staff').insert(payload)
+          if (error) throw error
+        }
+        success++
+      } catch (e) {
+        console.error('Row failed:', row.email, e.message)
+        failed++
+      }
+    }
+
+    showToast(
+      `Imported ${success} staff${failed ? `, ${failed} failed` : ''}`,
+      success > 0 ? 'success' : 'error'
+    )
+    onImported()
+    onClose()
+    setImporting(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ width: '780px' }}>
+        <div className="modal-header">
+          <div className="modal-title">Import Staff CSV</div>
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            <button className="btn-secondary" onClick={downloadTemplate}>
+              {Icon.download} Download Template
+            </button>
+            <button className="modal-close" onClick={onClose}>{Icon.x}</button>
+          </div>
+        </div>
+
+        <div className="modal-body">
+          {rows.length === 0 ? (
+            <div
+              className={`import-drop-zone ${dragOver ? 'drag-over' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current.click()}
+            >
+              <input ref={fileRef} type="file" accept=".csv" style={{ display:'none' }}
+                onChange={e => e.target.files[0] && processFile(e.target.files[0])}/>
+              <svg className="import-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <div className="import-drop-title">Drop your CSV file here</div>
+              <div className="import-drop-sub">or click to browse · columns: name, position, email, mobile, department</div>
+            </div>
+          ) : (
+            <>
+              <div className="import-summary">
+                <div className="import-summary-item">Total: <span>{rows.length}</span></div>
+                <div className="import-summary-item">To import: <span style={{color:'var(--green)'}}>{toImport.length}</span></div>
+                {toSkip.length > 0 && <div className="import-summary-item">Skipping: <span>{toSkip.length}</span></div>}
+                {duplicates.length > 0 && <div className="import-summary-item">Duplicates: <span style={{color:'var(--red)'}}>{duplicates.length} — choose skip or overwrite</span></div>}
+                <button className="btn-secondary" style={{marginLeft:'auto',padding:'4px 12px',fontSize:'11px'}} onClick={() => setRows([])}>
+                  Clear
+                </button>
+              </div>
+
+              <div style={{ overflowX:'auto', maxHeight:'360px', overflowY:'auto', marginTop:16 }}>
+                <table className="import-preview-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Position</th>
+                      <th>Email</th>
+                      <th>Mobile</th>
+                      <th>Department</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, idx) => (
+                      <tr key={idx} className={`${row.isDuplicate ? 'is-duplicate' : ''} ${row.action === 'skip' ? 'is-skip' : ''}`}>
+                        <td title={row.full_name}>{row.full_name}</td>
+                        <td title={row.position}>{row.position}</td>
+                        <td style={{fontFamily:'monospace',fontSize:'11px'}} title={row.email}>{row.email}</td>
+                        <td>{row.mobile}</td>
+                        <td title={row.department_name}>{row.department_name}</td>
+                        <td>
+                          {row.isDuplicate ? (
+                            <select className="import-row-select" value={row.action} onChange={e => setRowAction(idx, e.target.value)}>
+                              <option value="skip">Skip (duplicate)</option>
+                              <option value="overwrite">Overwrite</option>
+                            </select>
+                          ) : (
+                            <span className="import-row-badge new">New</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          {rows.length > 0 && (
+            <button className="btn-save" onClick={handleImport} disabled={importing || toImport.length === 0}>
+              {importing
+                ? <><div className="spinner"/> Importing…</>
+                : <>Import {toImport.length} Staff</>
+              }
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Staff List ─────────────────────────────────────────────────────── */
 function StaffPage({ showToast }) {
   const [staff, setStaff] = useState([])
@@ -808,6 +1066,7 @@ function StaffPage({ showToast }) {
   const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState({})
+  const [importModal, setImportModal] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -860,9 +1119,14 @@ function StaffPage({ showToast }) {
           <div className="page-title">Staff Management</div>
           <div className="page-sub">{staff.length} staff members · REDtone IoT</div>
         </div>
-        <button className="btn-primary" onClick={() => setModal('add')}>
-          {Icon.plus} Add Staff
-        </button>
+        <div style={{ display:'flex', gap:10 }}>
+          <button className="btn-secondary" onClick={() => setImportModal(true)}>
+            {Icon.upload} Import CSV
+          </button>
+          <button className="btn-primary" onClick={() => setModal('add')}>
+            {Icon.plus} Add Staff
+          </button>
+        </div>
       </div>
 
       <div className="stats-row">
@@ -963,6 +1227,16 @@ function StaffPage({ showToast }) {
           departments={departments}
           onClose={() => setModal(null)}
           onSaved={load}
+          showToast={showToast}
+        />
+      )}
+
+      {importModal && (
+        <CSVImportModal
+          existingStaff={staff}
+          departments={departments}
+          onClose={() => setImportModal(false)}
+          onImported={load}
           showToast={showToast}
         />
       )}
