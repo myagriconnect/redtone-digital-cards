@@ -426,12 +426,10 @@ async function generateCardHTML(s, org) {
         'END:VCARD'
       ].filter(Boolean).join('\\r\\n')
 
-      if (navigator.share && navigator.canShare) {
+      if (navigator.share) {
         const file = new File([vcf], d.full_name.replace(/\\s+/g, '_') + '.vcf', { type: 'text/vcard' })
-        if (navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file] }).catch(() => fallbackDownload(vcf, d.full_name))
-          return
-        }
+        navigator.share({ files: [file] }).catch(() => fallbackDownload(vcf, d.full_name))
+        return
       }
       fallbackDownload(vcf, d.full_name)
     }
