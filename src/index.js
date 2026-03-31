@@ -187,19 +187,20 @@ function buildCardHTML(s, logoUrl, siteUrl) {
   function saveContact() {
     const d = window._d
     const vcf = [
-      'BEGIN:VCARD','VERSION:3.0',
-      'FN:'+d.full_name,
+      'BEGIN:VCARD', 'VERSION:3.0',
+      'FN:' + d.full_name,
       'ORG:${ORG_NAME}',
-      'TITLE:'+d.position,
-      d.mobile    ? 'TEL;TYPE=CELL:'+d.mobile    : '',
-      d.email     ? 'EMAIL:'+d.email              : '',
-      d.photo_url ? 'PHOTO;VALUE=URL:'+d.photo_url : '',
+      'TITLE:' + d.position,
+      d.mobile    ? 'TEL;TYPE=CELL:' + d.mobile    : '',
+      d.email     ? 'EMAIL:' + d.email              : '',
+      d.photo_url ? 'PHOTO;VALUE=URL:' + d.photo_url : '',
       'END:VCARD'
     ].filter(Boolean).join('\\r\\n')
+
     if (navigator.share && navigator.canShare) {
-      const file = new File([vcf], d.full_name.replace(/\\s+/g,'_')+'.vcf', {type:'text/vcard'})
-      if (navigator.canShare({files:[file]})) {
-        navigator.share({files:[file]}).catch(()=>fallbackDownload(vcf,d.full_name))
+      const file = new File([vcf], d.full_name.replace(/\\s+/g, '_') + '.vcf', { type: 'text/vcard' })
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(() => fallbackDownload(vcf, d.full_name))
         return
       }
     }
@@ -207,11 +208,11 @@ function buildCardHTML(s, logoUrl, siteUrl) {
   }
 
   function fallbackDownload(vcf, name) {
-    const blob = new Blob([vcf],{type:'text/vcard'})
+    const blob = new Blob([vcf], { type: 'text/vcard' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = name.replace(/\\s+/g,'_')+'.vcf'
+    a.download = name.replace(/\\s+/g, '_') + '.vcf'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
