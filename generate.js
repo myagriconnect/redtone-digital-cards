@@ -449,9 +449,10 @@ async function generateCardHTML(s, org) {
     }
 
     function openWhatsApp() {
-      const msg = encodeURIComponent('Hi! Here is my digital card: ' + CARD_URL)
-      window.open('https://wa.me/?text=' + msg, '_blank')
-    }
+  const mobile = (window._d.mobile || window._staffData?.mobile || '').replace(/[^0-9]/g, '')
+  const msg = encodeURIComponent('Hi! Here is my digital card: ' + CARD_URL)
+  window.open('https://wa.me/' + mobile + '?text=' + msg, '_blank')
+}
 
     refreshCard()
   </script>
