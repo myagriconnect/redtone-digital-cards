@@ -390,16 +390,16 @@ async function generateCardHTML(s, org) {
 
     function saveContact() {
       const d = window._staffData || {
-        full_name: '${s.full_name}',
-        position:  '${s.position}',
-        mobile:    '${s.mobile   || ''}',
-        email:     '${s.email    || ''}',
-        photo_url: '${s.photo_url || ''}'
+        full_name: "${s.full_name}",
+        position:  "${s.position}",
+        mobile:    "${s.mobile   || ''}",
+        email:     "${s.email    || ''}",
+        photo_url: "${s.photo_url || ''}"
       }
       const vcf = [
         'BEGIN:VCARD', 'VERSION:3.0',
         'FN:'    + d.full_name,
-        'ORG:'   + '${orgName}',
+        'ORG:'   + "${orgName}",
         'TITLE:' + d.position,
         d.mobile    ? 'TEL;TYPE=CELL:' + d.mobile    : '',
         d.email     ? 'EMAIL:'         + d.email     : '',
