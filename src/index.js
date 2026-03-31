@@ -87,6 +87,9 @@ function buildCardHTML(s, logoUrl, siteUrl) {
     .save-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:linear-gradient(135deg,var(--red),#c0001a);border:none;border-radius:12px;padding:14px;color:white;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(232,0,29,.3);transition:all .2s}
     .save-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(232,0,29,.4)}
     .save-btn svg{width:16px;height:16px}
+    .wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25D366;border:none;border-radius:12px;padding:14px;color:white;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(37,211,102,.3);transition:all .2s;margin-top:10px}
+    .wa-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(37,211,102,.4)}
+    .wa-btn svg{width:16px;height:16px}
   </style>
 </head>
 <body>
@@ -151,12 +154,19 @@ function buildCardHTML(s, logoUrl, siteUrl) {
       </svg>
       Save Contact
     </button>
+    <button class="wa-btn" onclick="openWhatsApp()">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      </svg>
+      Share via WhatsApp
+    </button>
   </div>
 </div>
 <script>
   const SUPABASE_URL = '${SUPABASE_URL}'
   const ANON_KEY     = '${SUPABASE_ANON}'
   const SLUG         = '${s.card_slug}'
+  const CARD_URL     = '${cardURL}'
   window._d = ${JSON.stringify({ full_name: s.full_name, position: s.position, mobile: s.mobile || '', email: s.email || '', photo_url: s.photo_url || '' })}
 
   async function refresh() {
@@ -175,26 +185,46 @@ function buildCardHTML(s, logoUrl, siteUrl) {
   }
 
   function saveContact() {
-    const d=window._d
-    const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
-      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',d.email?'EMAIL:'+d.email:'',
-      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'','END:VCARD'].filter(Boolean).join('\\n')
-    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([vcf],{type:'text/vcard'})),download:d.full_name.replace(/\\s+/g,'_')+'.vcf'})
-    a.click()
-    const mobile=(d.mobile||'').replace(/[^0-9]/g,'')
-    if(!mobile)return
-    const waUrl='https://wa.me/'+mobile+'?text=Hi%2C%20nice%20to%20meet%20you.%20Send%20this%20message%20to%20me%20to%20share%20contacts'
-    const toast=document.getElementById('wa-toast')
-    toast.style.display='flex'
-    toast.onclick=()=>window.open(waUrl,'_blank')
-    setTimeout(()=>{toast.style.opacity='1'},10)
-    setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>{toast.style.display='none'},400)},6000)
+    const d = window._d
+    const vcf = [
+      'BEGIN:VCARD','VERSION:3.0',
+      'FN:'+d.full_name,
+      'ORG:${ORG_NAME}',
+      'TITLE:'+d.position,
+      d.mobile    ? 'TEL;TYPE=CELL:'+d.mobile    : '',
+      d.email     ? 'EMAIL:'+d.email              : '',
+      d.photo_url ? 'PHOTO;VALUE=URL:'+d.photo_url : '',
+      'END:VCARD'
+    ].filter(Boolean).join('\\r\\n')
+    if (navigator.share && navigator.canShare) {
+      const file = new File([vcf], d.full_name.replace(/\\s+/g,'_')+'.vcf', {type:'text/vcard'})
+      if (navigator.canShare({files:[file]})) {
+        navigator.share({files:[file]}).catch(()=>fallbackDownload(vcf,d.full_name))
+        return
+      }
+    }
+    fallbackDownload(vcf, d.full_name)
   }
+
+  function fallbackDownload(vcf, name) {
+    const blob = new Blob([vcf],{type:'text/vcard'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name.replace(/\\s+/g,'_')+'.vcf'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  function openWhatsApp() {
+    const msg = encodeURIComponent('Hi! Here is my digital card: ' + CARD_URL)
+    window.open('https://wa.me/?text=' + msg, '_blank')
+  }
+
   refresh()
 </script>
-<div id="wa-toast" style="display:none;opacity:0;transition:opacity 0.4s;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#25D366;color:#fff;padding:14px 20px;border-radius:12px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;align-items:center;gap:10px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:320px;text-align:center;">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style="flex-shrink:0;display:inline-block;vertical-align:middle;margin-right:8px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Thanks! Tap here to say hi on WhatsApp 👋
-</div>
 </body>
 </html>`
 }
