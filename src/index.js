@@ -51,8 +51,7 @@ function buildCardHTML(s, logoUrl, siteUrl) {
   <meta property="og:title" content="${s.full_name}"/>
   <meta property="og:description" content="${s.position}${deptName ? ' · ' + deptName : ''}"/>
   ${s.photo_url ? `<meta property="og:image" content="${s.photo_url}"/>` : ''}
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{--red:#E8001D;--gold:#C9973A;--dark:#060b16;--card-bg:#0d1520;--text:#f0f2f7;--muted:#8892a4}
