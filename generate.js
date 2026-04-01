@@ -47,7 +47,8 @@ async function makeQR(text) {
 
 // ── Generate individual card HTML ────────────────────────────────────────────
 async function generateCardHTML(s, org) {
-  const cardURL = `${SITE_URL}/${s.card_slug}/`
+  const orgSlug  = org?.slug || 'redtone-iot'
+  const cardURL  = `${SITE_URL}/${orgSlug}/${s.card_slug}/`
   const qrDataURL = await makeQR(cardURL)
   const deptName = s.departments?.name || ''
   const orgName  = org?.name || 'REDtone IoT'
@@ -557,27 +558,143 @@ function generateLandingHTML(staff, orgs) {
 </html>`
 }
 
+// ── Generate smart login page ─────────────────────────────────────────────────
+function generateLoginHTML() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Digital Cards — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#060b16;font-family:'Outfit',-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(232,0,29,.12) 0%,transparent 60%)}
+    .card{background:#0d1520;border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .logo-bar{background:linear-gradient(160deg,#0d1a2e 0%,#060b16 100%);padding:28px 32px 24px;border-bottom:1px solid rgba(232,0,29,.12);text-align:center}
+    .logo-text{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;color:#f0f2f7}.logo-text span{color:#E8001D}
+    .logo-sub{font-size:11px;color:#8892a4;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+    .form-body{padding:32px}
+    .field{margin-bottom:20px}
+    label{display:block;font-size:11px;font-weight:600;color:#8892a4;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    input{width:100%;background:#060b16;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 16px;color:#f0f2f7;font-family:'Outfit',sans-serif;font-size:14px;outline:none;transition:border-color .2s}
+    input:focus{border-color:rgba(232,0,29,.5)}
+    .login-btn{width:100%;background:linear-gradient(135deg,#E8001D,#c0001a);border:none;border-radius:12px;padding:14px;color:white;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s}
+    .login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(232,0,29,.4)}
+    .login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .error{font-size:12px;color:#E8001D;margin-top:12px;text-align:center;min-height:18px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <div class="logo-text"><span>RED</span>tone</div>
+    <div class="logo-sub">Digital Cards</div>
+  </div>
+  <div class="form-body">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="handleLogin()">Sign In</button>
+    <div class="error" id="error"></div>
+  </div>
+</div>
+<script>
+  const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
+  const ANON_KEY     = 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
+
+  async function handleLogin() {
+    const email    = document.getElementById('email').value.trim()
+    const password = document.getElementById('password').value
+    const btn      = document.getElementById('loginBtn')
+    const err      = document.getElementById('error')
+
+    if (!email || !password) { err.textContent = 'Please enter email and password.'; return }
+
+    btn.disabled = true
+    btn.textContent = 'Signing in...'
+    err.textContent = ''
+
+    try {
+      // 1. Sign in with Supabase Auth
+      const authRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+        body: JSON.stringify({ email, password })
+      })
+      const auth = await authRes.json()
+      if (!auth.access_token) throw new Error(auth.error_description || 'Invalid credentials')
+
+      const token = auth.access_token
+
+      // 2. Check if Super Admin
+      const saRes = await fetch(SUPABASE_URL + '/rest/v1/super_admins?select=id&limit=1', {
+        headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + token }
+      })
+      const sa = await saRes.json()
+      if (sa?.length > 0) {
+        window.location.href = '/super/'
+        return
+      }
+
+      // 3. Check HR Admin / Viewer — find their org
+      const hrRes = await fetch(SUPABASE_URL + '/rest/v1/hr_admins?select=role,organizations(slug)&limit=1', {
+        headers: { apikey: ANON_KEY, Authorization: 'Bearer ' + token }
+      })
+      const hr = await hrRes.json()
+      if (hr?.length > 0) {
+        const orgSlug = hr[0]?.organizations?.slug || 'redtone-iot'
+        window.location.href = '/' + orgSlug + '/admin/'
+        return
+      }
+
+      throw new Error('No access found for this account.')
+    } catch(e) {
+      err.textContent = e.message
+      btn.disabled = false
+      btn.textContent = 'Sign In'
+    }
+  }
+
+  // Allow Enter key to submit
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin() })
+</script>
+</body>
+</html>`
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const { orgs, staff } = await fetchData()
-  const org = orgs?.[0]
 
   fs.mkdirSync('./dist', { recursive: true })
 
   let totalSize = 0
+
   for (const s of staff) {
-    const html = await generateCardHTML(s, org)
-    const dir  = `./dist/${s.card_slug}`
+    // Find this staff member's org
+    const org     = orgs.find(o => o.id === s.org_id) || orgs?.[0]
+    const orgSlug = org?.slug || 'redtone-iot'
+    const html    = await generateCardHTML(s, org)
+    const dir     = `./dist/${orgSlug}/${s.card_slug}`
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(`${dir}/index.html`, html)
     totalSize += html.length
-    console.log(`  ✅  /${s.card_slug}/  (${(html.length / 1024).toFixed(1)} KB)`)
+    console.log(`  ✅  /${orgSlug}/${s.card_slug}/  (${(html.length / 1024).toFixed(1)} KB)`)
   }
 
-  const landing = generateLandingHTML(staff, orgs)
-  fs.writeFileSync('./dist/index.html', landing)
-  console.log(`  ✅  / (landing)  (${(landing.length / 1024).toFixed(1)} KB)`)
-  console.log(`\n🎉 Done! ${staff.length} cards + landing page. Total: ${(totalSize / 1024).toFixed(1)} KB`)
+  // Landing page (smart login) — simple redirect page for now
+  const loginHTML = generateLoginHTML()
+  fs.writeFileSync('./dist/index.html', loginHTML)
+  console.log(`  ✅  / (login page)`)
+
+  console.log(`\n🎉 Done! ${staff.length} cards. Total: ${(totalSize / 1024).toFixed(1)} KB`)
 }
 
 main().catch(e => { console.error('❌', e.message); process.exit(1) })
