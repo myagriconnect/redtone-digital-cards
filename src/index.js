@@ -1,6 +1,7 @@
 // Cloudflare Worker — serves static card pages OR generates them dynamically
 // from Supabase for new staff added via the admin portal (no rebuild needed)
 
+
 const SUPABASE_URL     = 'https://omuopaupndqxwsuyvtoy.supabase.co'
 const SUPABASE_ANON    = 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
 const ORG_NAME         = 'REDtone IoT'
