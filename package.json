@@ -2,6 +2,7 @@
   "name": "redtone-static-cards",
   "version": "1.0.0",
   "description": "Static HTML card generator from Supabase",
+  "type": "module",
   "scripts": {
     "generate": "node generate.js",
     "build": "npm install && node generate.js",
