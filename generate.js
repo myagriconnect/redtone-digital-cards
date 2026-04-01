@@ -2,6 +2,7 @@
 // generate.js — builds static HTML card pages from Supabase data
 // Cards include a live-fetch script so edits in admin reflect instantly (no rebuild needed)
 
+
 import { createClient } from '@supabase/supabase-js'
 import QRCode from 'qrcode'
 import fs from 'fs'
