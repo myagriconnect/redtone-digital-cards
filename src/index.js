@@ -6,27 +6,33 @@ const SUPABASE_ANON    = 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
 const ORG_NAME         = 'REDtone IoT'
 const LOGO_URL         = 'https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/redtone-logo.png'
 
-// ── Fetch staff by card_slug from Supabase ───────────────────────────────────
-async function fetchStaff(slug) {
+// ── Fetch staff by org slug + card slug ─────────────────────────────────────
+async function fetchStaff(orgSlug, cardSlug) {
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/staff?card_slug=eq.${slug}&select=*,departments(name)&is_active=eq.true`,
+    `${SUPABASE_URL}/rest/v1/staff?card_slug=eq.${cardSlug}&select=*,departments(name),organizations!inner(slug)&is_active=eq.true&organizations.slug=eq.${orgSlug}`,
     { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
   )
   const data = await res.json()
   return data?.[0] || null
 }
 
-// ── Fetch org + logo from Supabase ───────────────────────────────────────────
-async function fetchOrgLogo() {
+// ── Fetch org + template by org slug ─────────────────────────────────────────
+async function fetchOrgTemplate(orgSlug) {
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/card_templates?select=logo_url&limit=1`,
+      `${SUPABASE_URL}/rest/v1/organizations?slug=eq.${orgSlug}&select=*,card_templates(*)&limit=1`,
       { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
     )
-    const [row] = await res.json()
-    return row?.logo_url || LOGO_URL
-  } catch { return LOGO_URL }
+    const [org] = await res.json()
+    return {
+      orgName: org?.name || ORG_NAME,
+      logoUrl: org?.card_templates?.[0]?.logo_url || LOGO_URL
+    }
+  } catch { return { orgName: ORG_NAME, logoUrl: LOGO_URL } }
 }
+
+// ── Known legacy card slugs for backwards-compat redirect ────────────────────
+const LEGACY_SLUGS = ['ali-imran', 'saiful-akmal', 'ahmad-mustaqim']
 
 // ── Generate QR code SVG (no external lib needed in Workers) ─────────────────
 // We embed a lightweight QR via a Google Charts fallback URL in the img src
@@ -36,11 +42,11 @@ function qrImgTag(url) {
 }
 
 // ── Generate card HTML dynamically ───────────────────────────────────────────
-function buildCardHTML(s, logoUrl, siteUrl) {
+function buildCardHTML(s, logoUrl, siteUrl, orgSlug) {
   const orgName  = ORG_NAME
   const deptName = s.departments?.name || ''
   const initials = s.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  const cardURL  = `${siteUrl}/${s.card_slug}/`
+  const cardURL  = `${siteUrl}/${orgSlug}/${s.card_slug}/`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -231,39 +237,67 @@ function buildCardHTML(s, logoUrl, siteUrl) {
 // ── Worker entry point ───────────────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
-    const url  = new URL(request.url)
-    const path = url.pathname
+    const url     = new URL(request.url)
+    const path    = url.pathname
+    const siteUrl = `${url.protocol}//${url.host}`
 
-    // Always serve /admin/* and static assets directly
-    const staticPrefixes = ['/admin', '/assets', '/favicon']
-    if (path === '/' || staticPrefixes.some(p => path.startsWith(p))) {
+    // ── Static assets (js/css/images from dist) ──────────────────────────────
+    if (path.startsWith('/assets/') || path.startsWith('/favicon')) {
       return env.ASSETS.fetch(request)
     }
 
-    // Try static asset first (existing staff cards baked at build time)
-    const staticResponse = await env.ASSETS.fetch(request)
-    if (staticResponse.status !== 404) return staticResponse
-
-    // Static file not found — check if it's a staff card slug
-    const slug = path.replace(/^\/|\/$/g, '') // strip leading/trailing slashes
-    if (!slug || slug.includes('/') || slug.includes('.')) {
-      return staticResponse // not a slug pattern
+    // ── Super Admin portal ────────────────────────────────────────────────────
+    if (path === '/super' || path.startsWith('/super/')) {
+      return env.ASSETS.fetch(new Request(`${siteUrl}/super/index.html`, request))
     }
 
-    // Fetch staff from Supabase
-    const staff = await fetchStaff(slug)
-    if (!staff) return staticResponse // still 404
+    // ── Root → smart login page ───────────────────────────────────────────────
+    if (path === '/' || path === '') {
+      return env.ASSETS.fetch(new Request(`${siteUrl}/index.html`, request))
+    }
 
-    // Dynamically generate and return the card
-    const logoUrl = await fetchOrgLogo()
-    const siteUrl = `${url.protocol}//${url.host}`
-    const html    = buildCardHTML(staff, logoUrl, siteUrl)
+    // ── Legacy redirect: /ali-imran/ → /redtone-iot/ali-imran/ ───────────────
+    const legacySlug = path.replace(/^\/|\/$/g, '')
+    if (LEGACY_SLUGS.includes(legacySlug)) {
+      return Response.redirect(`${siteUrl}/redtone-iot/${legacySlug}/`, 301)
+    }
 
-    return new Response(html, {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=60', // cache for 60s, then revalidate
-      }
-    })
+    // ── Parse /:org/:card/ or /:org/admin/ ────────────────────────────────────
+    const parts = path.replace(/^\/|\/$/g, '').split('/')
+    const orgSlug  = parts[0]
+    const second   = parts[1] // card slug or 'admin'
+
+    // ── Org root → redirect to admin ─────────────────────────────────────────
+    if (orgSlug && !second) {
+      return Response.redirect(`${siteUrl}/${orgSlug}/admin/`, 302)
+    }
+
+    // ── HR Admin portal: /:org/admin/* ───────────────────────────────────────
+    if (second === 'admin') {
+      return env.ASSETS.fetch(new Request(`${siteUrl}/admin/index.html`, request))
+    }
+
+    // ── Staff card: /:org/:card/ ──────────────────────────────────────────────
+    if (orgSlug && second) {
+      // Try static file first
+      const staticResponse = await env.ASSETS.fetch(request)
+      if (staticResponse.status !== 404) return staticResponse
+
+      // Dynamic fallback — fetch from Supabase
+      const staff = await fetchStaff(orgSlug, second)
+      if (!staff) return new Response('Not found', { status: 404 })
+
+      const { orgName, logoUrl } = await fetchOrgTemplate(orgSlug)
+      const html = buildCardHTML(staff, logoUrl, siteUrl, orgSlug)
+
+      return new Response(html, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=60',
+        }
+      })
+    }
+
+    return new Response('Not found', { status: 404 })
   }
 }
