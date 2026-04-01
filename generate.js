@@ -63,8 +63,7 @@ async function generateCardHTML(s, org) {
   <meta property="og:title" content="${s.full_name}"/>
   <meta property="og:description" content="${s.position}${deptName ? ' · ' + deptName : ''}"/>
   ${s.photo_url ? `<meta property="og:image" content="${s.photo_url}"/>` : ''}
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -491,8 +490,7 @@ function generateLandingHTML(staff, orgs) {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>${orgName} — Digital Cards</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
     body {
