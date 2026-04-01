@@ -1,4 +1,5 @@
 {
+  "type": "module"
   "name": "redtone-static-cards",
   "version": "1.0.0",
   "description": "Static HTML card generator from Supabase",
