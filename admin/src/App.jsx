@@ -239,10 +239,18 @@ const css = `
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 20px;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(.22,1,.36,1);
     animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
   .staff-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  .staff-card:hover .staff-name,
+  .staff-card:hover .staff-pos,
+  .staff-card:hover .staff-dept { white-space: normal; overflow: visible; text-overflow: unset; }
+  .staff-card:hover .staff-name a { white-space: normal; overflow: visible; text-overflow: unset; }
   .staff-card-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
   .staff-avatar {
     width: 52px; height: 52px;
@@ -261,11 +269,11 @@ const css = `
     overflow: hidden;
   }
   .staff-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; }
-  .staff-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; line-height: 1.3; word-break: break-word; white-space: normal; }
-  .staff-name a { color: inherit; text-decoration: none; }
-  .staff-name a:hover { color: var(--red); text-decoration: underline; text-decoration-color: rgba(232,0,29,0.4); }
-  .staff-pos { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
-  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .staff-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .staff-name a { color: inherit; text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .staff-name a:hover { color: var(--red); }
+  .staff-pos { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .staff-slug-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
   .btn-copy-link {
     font-size: 10px;
