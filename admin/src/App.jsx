@@ -261,9 +261,28 @@ const css = `
     overflow: hidden;
   }
   .staff-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; }
-  .staff-name { font-weight: 600; font-size: 15px; margin-bottom: 3px; }
-  .staff-pos { font-size: 11px; color: var(--muted); }
-  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; }
+  .staff-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; line-height: 1.3; word-break: break-word; white-space: normal; }
+  .staff-name a { color: inherit; text-decoration: none; }
+  .staff-name a:hover { color: var(--red); text-decoration: underline; text-decoration-color: rgba(232,0,29,0.4); }
+  .staff-pos { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .staff-slug-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
+  .btn-copy-link {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: rgba(255,255,255,0.45);
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-copy-link:hover { border-color: var(--red); color: var(--red); }
+  .btn-copy-link.copied { border-color: var(--green); color: var(--green); }
   .staff-card-actions { display: flex; gap: 8px; }
   .btn-edit, .btn-delete {
     flex: 1;
@@ -1221,14 +1240,33 @@ function StaffPage({ showToast }) {
                           }
                         </div>
                         <div style={{flex:1, minWidth:0}}>
-                          <div className="staff-name" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.full_name}</div>
-                          <div className="staff-pos">{s.position}</div>
-                          {s.departments && <div className="staff-dept">{s.departments.name}</div>}
+                          <div className="staff-name">
+                            <a href={`/${s.card_slug}/`} target="_blank" rel="noopener noreferrer" title="View card">
+                              {s.full_name.toUpperCase()}
+                            </a>
+                          </div>
+                          <div className="staff-pos">{s.position.toUpperCase()}</div>
+                          {s.departments && <div className="staff-dept">{s.departments.name.toUpperCase()}</div>}
                         </div>
                         <span className="badge badge-active">Active</span>
                       </div>
-                      <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px',fontFamily:'monospace'}}>
-                        /{s.card_slug}
+                      <div className="staff-slug-row">
+                        <span>/{s.card_slug}</span>
+                        <button
+                          className="btn-copy-link"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const url = `${window.location.origin}/${s.card_slug}/`
+                            navigator.clipboard.writeText(url).then(() => {
+                              e.target.textContent = 'Copied!'
+                              e.target.classList.add('copied')
+                              setTimeout(() => {
+                                e.target.textContent = 'Copy Link'
+                                e.target.classList.remove('copied')
+                              }, 2000)
+                            })
+                          }}
+                        >Copy Link</button>
                       </div>
                       <div className="staff-card-actions">
                         <button className="btn-edit" onClick={() => setModal(s)}>
