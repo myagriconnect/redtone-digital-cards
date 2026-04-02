@@ -241,17 +241,13 @@ const css = `
     padding: 20px;
     transition: all 0.25s cubic-bezier(.22,1,.36,1);
     animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
-    min-height: 180px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
   }
   .staff-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
   .staff-card:hover .staff-name,
   .staff-card:hover .staff-pos,
   .staff-card:hover .staff-dept { white-space: normal; overflow: visible; text-overflow: unset; }
   .staff-card:hover .staff-name a { white-space: normal; overflow: visible; text-overflow: unset; }
-  .staff-card-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .staff-card-top { display: flex; align-items: center; gap: 14px; }
   .staff-avatar {
     width: 52px; height: 52px;
     border-radius: 50%;
@@ -294,11 +290,13 @@ const css = `
     overflow: hidden;
     max-height: 0;
     opacity: 0;
-    transition: max-height 0.25s ease, opacity 0.2s ease;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+    margin-top: 0;
   }
   .staff-card:hover .staff-card-bottom {
     max-height: 80px;
     opacity: 1;
+    margin-top: 14px;
   }
   .staff-card-actions { display: flex; gap: 8px; }
   .btn-edit, .btn-delete {
