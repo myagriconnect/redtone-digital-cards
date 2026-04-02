@@ -699,6 +699,11 @@ function PhotoUpload({ value, onChange, initials }) {
 }
 
 /* ─── Staff Modal ────────────────────────────────────────────────────── */
+const genCode = () => {
+  const num = String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0')
+  return `rt-${num}`
+}
+
 function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
   const isEdit = !!staff?.id
   const [form, setForm] = useState({
@@ -708,7 +713,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     mobile: staff?.mobile || '',
     dept_id: staff?.dept_id || '',
     department_name: staff?.departments?.name || '',
-    card_slug: staff?.card_slug || '',
+    card_slug: staff?.card_slug || (staff?.id ? '' : genCode()),
     is_active: staff?.is_active ?? true,
   })
   const [photoFile, setPhotoFile] = useState(null)
@@ -716,13 +721,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
 
   const initials = form.full_name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()
 
-  const slugify = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-
-  const set = (k, v) => setForm(f => {
-    const next = { ...f, [k]: v }
-    if (k === 'full_name' && !isEdit) next.card_slug = slugify(v)
-    return next
-  })
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
     if (!form.full_name || !form.position || !form.email) {
@@ -837,7 +836,31 @@ if (form.department_name.trim()) {
             </div>
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Card Slug</label>
-              <input className="form-input" value={form.card_slug} onChange={e => set('card_slug', e.target.value)} placeholder="ahmad-bin-abdullah"/>
+              <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
+                <input
+                  className="form-input"
+                  style={{margin:0, flex:1, fontFamily:'monospace', fontSize:'13px'}}
+                  value={form.card_slug}
+                  onChange={e => set('card_slug', e.target.value)}
+                  placeholder="rt-00000"
+                />
+                <button
+                  type="button"
+                  title="Generate new code"
+                  onClick={() => set('card_slug', genCode())}
+                  style={{
+                    flexShrink:0, height:'42px', padding:'0 12px',
+                    background:'transparent', border:'1px solid var(--border)',
+                    borderRadius:'10px', color:'var(--muted)', cursor:'pointer',
+                    fontSize:'11px', fontFamily:'Outfit,sans-serif', fontWeight:600,
+                    letterSpacing:'0.5px', whiteSpace:'nowrap', transition:'all 0.15s'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='var(--red)'; e.currentTarget.style.color='var(--red)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--muted)' }}
+                >
+                  ↻ New Code
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1268,19 +1291,16 @@ function StaffPage({ showToast }) {
                             const btn = e.currentTarget
                             const url = `${window.location.origin}/${s.card_slug}/`
                             navigator.clipboard.writeText(url).then(() => {
-                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
                               btn.classList.add('copied')
                               setTimeout(() => {
-                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+                                btn.innerHTML = '<img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="14" height="14" style="display:block;opacity:0.5" />'
                                 btn.classList.remove('copied')
                               }, 2000)
                             })
                           }}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                          </svg>
+                          <img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="14" height="14" style={{display:'block', opacity: 0.5}}/>
                         </button>
                       </div>
                       <div className="staff-card-actions">
