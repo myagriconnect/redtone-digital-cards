@@ -276,21 +276,30 @@ const css = `
   .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .staff-slug-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
   .btn-copy-link {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.15);
+    padding: 2px 4px;
+    border: none;
     background: transparent;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.35);
     cursor: pointer;
-    font-family: 'Outfit', sans-serif;
-    font-weight: 500;
-    letter-spacing: 0.3px;
     transition: all 0.15s;
-    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
   }
-  .btn-copy-link:hover { border-color: var(--red); color: var(--red); }
-  .btn-copy-link.copied { border-color: var(--green); color: var(--green); }
+  .staff-name-row:hover .btn-copy-link { opacity: 1; pointer-events: auto; }
+  .btn-copy-link:hover { color: var(--red); }
+  .btn-copy-link.copied { color: var(--green); }
+  .staff-card-bottom {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+  }
+  .staff-card:hover .staff-card-bottom {
+    max-height: 80px;
+    opacity: 1;
+  }
   .staff-card-actions { display: flex; gap: 8px; }
   .btn-edit, .btn-delete {
     flex: 1;
@@ -1271,45 +1280,49 @@ function StaffPage({ showToast }) {
                           }
                         </div>
                         <div style={{flex:1, minWidth:0}}>
-                          <div className="staff-name">
-                            <a href={`/${s.card_slug}/`} target="_blank" rel="noopener noreferrer" title="View card">
-                              {s.full_name.toUpperCase()}
-                            </a>
+                          <div className="staff-name-row" style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                            <div className="staff-name" style={{flex:1,minWidth:0}}>
+                              <a href={`/${s.card_slug}/`} target="_blank" rel="noopener noreferrer" title="View card">
+                                {s.full_name.toUpperCase()}
+                              </a>
+                            </div>
+                            <button
+                              className="btn-copy-link"
+                              title="Copy card link"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const btn = e.currentTarget
+                                const url = `${window.location.origin}/${s.card_slug}/`
+                                navigator.clipboard.writeText(url).then(() => {
+                                  btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                                  btn.classList.add('copied')
+                                  setTimeout(() => {
+                                    btn.innerHTML = '<img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="13" height="13" style="display:block;opacity:0.5" />'
+                                    btn.classList.remove('copied')
+                                  }, 2000)
+                                })
+                              }}
+                            >
+                              <img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="13" height="13" style={{display:'block',opacity:0.5}}/>
+                            </button>
                           </div>
                           <div className="staff-pos">{s.position.toUpperCase()}</div>
                           {s.departments && <div className="staff-dept">{s.departments.name.toUpperCase()}</div>}
                         </div>
                         <span className="badge badge-active">Active</span>
                       </div>
-                      <div className="staff-slug-row">
-                        <span>/{s.card_slug}</span>
-                        <button
-                          className="btn-copy-link"
-                          title="Copy card link"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const btn = e.currentTarget
-                            const url = `${window.location.origin}/${s.card_slug}/`
-                            navigator.clipboard.writeText(url).then(() => {
-                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-                              btn.classList.add('copied')
-                              setTimeout(() => {
-                                btn.innerHTML = '<img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="14" height="14" style="display:block;opacity:0.5" />'
-                                btn.classList.remove('copied')
-                              }, 2000)
-                            })
-                          }}
-                        >
-                          <img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="14" height="14" style={{display:'block', opacity: 0.5}}/>
-                        </button>
-                      </div>
-                      <div className="staff-card-actions">
-                        <button className="btn-edit" onClick={() => setModal(s)}>
-                          {Icon.edit} Edit
-                        </button>
-                        <button className="btn-delete" onClick={() => handleDelete(s)}>
-                          {Icon.trash}
-                        </button>
+                      <div className="staff-card-bottom">
+                        <div className="staff-slug-row" style={{fontSize:'12px',color:'var(--muted)',marginBottom:'10px',fontFamily:'monospace'}}>
+                          /{s.card_slug}
+                        </div>
+                        <div className="staff-card-actions">
+                          <button className="btn-edit" onClick={() => setModal(s)}>
+                            {Icon.edit} Edit
+                          </button>
+                          <button className="btn-delete" onClick={() => handleDelete(s)}>
+                            {Icon.trash}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
