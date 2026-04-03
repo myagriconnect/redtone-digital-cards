@@ -663,6 +663,7 @@ const Icon = {
   dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   upload: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
   download: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+  shieldUser: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>,
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────────── */
@@ -1142,7 +1143,8 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
 }
 
 /* ─── Staff List ─────────────────────────────────────────────────────── */
-function StaffPage({ showToast }) {
+function StaffPage({ showToast, userRole, viewerProfile }) {
+  const isHR = userRole === 'hr_admin'
   const [staff, setStaff] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1153,8 +1155,12 @@ function StaffPage({ showToast }) {
 
   const load = async () => {
     setLoading(true)
+    let staffQuery = supabase.from('staff').select('*, departments(name)').eq('org_id', ORG_ID).order('full_name')
+    if (!isHR && viewerProfile && !viewerProfile.can_view_all && viewerProfile.dept_id) {
+      staffQuery = staffQuery.eq('dept_id', viewerProfile.dept_id)
+    }
     const [s, d] = await Promise.all([
-      supabase.from('staff').select('*, departments(name)').eq('org_id', ORG_ID).order('full_name'),
+      staffQuery,
       supabase.from('departments').select('*').eq('org_id', ORG_ID)
     ])
     setStaff(s.data || [])
@@ -1200,16 +1206,21 @@ function StaffPage({ showToast }) {
       <div className="page-header">
         <div>
           <div className="page-title">Staff Management</div>
-          <div className="page-sub">{staff.length} staff members · REDtone IoT</div>
+          <div className="page-sub">
+            {staff.length} staff members · REDtone IoT
+            {!isHR && <span style={{marginLeft:8,padding:'2px 8px',borderRadius:6,fontSize:10,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',background:'rgba(201,151,58,0.12)',color:'var(--gold)',border:'1px solid rgba(201,151,58,0.25)'}}>View Only</span>}
+          </div>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
-          <button className="btn-secondary" onClick={() => setImportModal(true)}>
-            {Icon.upload} Import CSV
-          </button>
-          <button className="btn-primary" onClick={() => setModal('add')}>
-            {Icon.plus} Add Staff
-          </button>
-        </div>
+        {isHR && (
+          <div style={{ display:'flex', gap:10 }}>
+            <button className="btn-secondary" onClick={() => setImportModal(true)}>
+              {Icon.upload} Import CSV
+            </button>
+            <button className="btn-primary" onClick={() => setModal('add')}>
+              {Icon.plus} Add Staff
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="stats-row">
@@ -1313,14 +1324,18 @@ function StaffPage({ showToast }) {
                         <div className="staff-slug-row" style={{fontSize:'12px',color:'var(--muted)',marginBottom:'10px',fontFamily:'monospace'}}>
                           /{s.card_slug}
                         </div>
-                        <div className="staff-card-actions">
-                          <button className="btn-edit" onClick={() => setModal(s)}>
-                            {Icon.edit} Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => handleDelete(s)}>
-                            {Icon.trash}
-                          </button>
-                        </div>
+                        {isHR ? (
+                          <div className="staff-card-actions">
+                            <button className="btn-edit" onClick={() => setModal(s)}>
+                              {Icon.edit} Edit
+                            </button>
+                            <button className="btn-delete" onClick={() => handleDelete(s)}>
+                              {Icon.trash}
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{fontSize:11,color:'var(--muted)',letterSpacing:'0.5px'}}>View only access</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1389,20 +1404,262 @@ function Login({ onLogin }) {
   )
 }
 
+/* ─── Users Page (HR only) ───────────────────────────────────────────── */
+function UsersPage({ showToast }) {
+  const [users, setUsers] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteDeptId, setInviteDeptId] = useState('')
+  const [inviteAll, setInviteAll] = useState(false)
+  const [inviting, setInviting] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    const [u, d] = await Promise.all([
+      supabase.from('org_users').select('*, departments(name)').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
+      supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name')
+    ])
+    setUsers(u.data || [])
+    setDepartments(d.data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) { showToast('Email is required', 'error'); return }
+    setInviting(true)
+    try {
+      // 1. Create auth user via invite
+      const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(inviteEmail.trim())
+      if (inviteErr) throw inviteErr
+      const newUserId = inviteData.user.id
+      // 2. Insert into org_users
+      const { error: insertErr } = await supabase.from('org_users').insert({
+        org_id: ORG_ID,
+        user_id: newUserId,
+        role: 'viewer',
+        dept_id: inviteAll ? null : (inviteDeptId || null),
+        can_view_all: inviteAll,
+      })
+      if (insertErr) throw insertErr
+      showToast(`Invite sent to ${inviteEmail}`, 'success')
+      setInviteEmail(''); setInviteDeptId(''); setInviteAll(false)
+      load()
+    } catch (e) {
+      showToast(e.message || 'Invite failed', 'error')
+    } finally {
+      setInviting(false)
+    }
+  }
+
+  const toggleViewAll = async (u) => {
+    const newVal = !u.can_view_all
+    const { error } = await supabase.from('org_users')
+      .update({ can_view_all: newVal, dept_id: newVal ? null : u.dept_id })
+      .eq('id', u.id)
+    if (error) { showToast('Update failed', 'error'); return }
+    showToast(newVal ? 'Granted all-department access' : 'Restricted to department only', 'success')
+    load()
+  }
+
+  const changeDept = async (u, deptId) => {
+    const { error } = await supabase.from('org_users').update({ dept_id: deptId || null }).eq('id', u.id)
+    if (error) { showToast('Update failed', 'error'); return }
+    showToast('Department updated', 'success')
+    load()
+  }
+
+  const removeUser = async (u) => {
+    if (!confirm(`Remove viewer access for this user?`)) return
+    const { error } = await supabase.from('org_users').delete().eq('id', u.id)
+    if (error) { showToast('Remove failed', 'error'); return }
+    showToast('Viewer access removed', 'success')
+    load()
+  }
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <div className="page-title">Viewer Access</div>
+          <div className="page-sub">Manage staff who can view cards but not edit</div>
+        </div>
+      </div>
+
+      {/* Invite panel */}
+      <div className="stat-card" style={{marginBottom:28}}>
+        <div className="stat-label" style={{marginBottom:16}}>Invite New Viewer</div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:12, alignItems:'end'}}>
+          <div>
+            <label className="form-label">Email Address</label>
+            <input
+              className="form-input"
+              type="email"
+              placeholder="staff@redtone.com"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label">Department Access</label>
+            <select
+              className="form-select"
+              value={inviteAll ? '__all__' : inviteDeptId}
+              onChange={e => {
+                if (e.target.value === '__all__') { setInviteAll(true); setInviteDeptId('') }
+                else { setInviteAll(false); setInviteDeptId(e.target.value) }
+              }}
+            >
+              <option value="">Select department…</option>
+              <option value="__all__">All Departments</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <button className="btn-primary" onClick={handleInvite} disabled={inviting} style={{height:42}}>
+            {inviting ? <div className="spinner"/> : <>{Icon.plus} Send Invite</>}
+          </button>
+        </div>
+        <div style={{fontSize:12,color:'var(--muted)',marginTop:10}}>
+          An invite email will be sent. The viewer can only browse staff cards — no edit or delete access.
+        </div>
+      </div>
+
+      {/* Viewers table */}
+      {loading ? (
+        <div className="empty-state"><div className="spinner" style={{margin:'0 auto'}}/></div>
+      ) : users.length === 0 ? (
+        <div className="empty-state">
+          {Icon.users}
+          <p>No viewers yet. Invite someone above.</p>
+        </div>
+      ) : (
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:'1px solid var(--border)'}}>
+                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>User</th>
+                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Department</th>
+                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Access Level</th>
+                <th style={{textAlign:'right',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u, i) => (
+                <tr key={u.id} style={{borderBottom: i < users.length-1 ? '1px solid var(--border)' : 'none'}}>
+                  <td style={{padding:'14px 20px'}}>
+                    <div style={{fontSize:13,fontWeight:500}}>{u.user_id}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Viewer</div>
+                  </td>
+                  <td style={{padding:'14px 20px'}}>
+                    {u.can_view_all ? (
+                      <span style={{color:'var(--gold)',fontSize:12}}>All Departments</span>
+                    ) : (
+                      <select
+                        className="import-row-select"
+                        value={u.dept_id || ''}
+                        onChange={e => changeDept(u, e.target.value)}
+                      >
+                        <option value="">— No dept —</option>
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      </select>
+                    )}
+                  </td>
+                  <td style={{padding:'14px 20px'}}>
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
+                      <div
+                        onClick={() => toggleViewAll(u)}
+                        style={{
+                          width:36, height:20, borderRadius:10,
+                          background: u.can_view_all ? 'var(--green)' : 'rgba(255,255,255,0.1)',
+                          position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
+                        }}
+                      >
+                        <div style={{
+                          width:14, height:14, borderRadius:50, background:'white',
+                          position:'absolute', top:3,
+                          left: u.can_view_all ? 19 : 3,
+                          transition:'left 0.2s'
+                        }}/>
+                      </div>
+                      <span style={{fontSize:12,color: u.can_view_all ? 'var(--green)' : 'var(--muted)'}}>
+                        {u.can_view_all ? 'All departments' : 'Own dept only'}
+                      </span>
+                    </label>
+                  </td>
+                  <td style={{padding:'14px 20px',textAlign:'right'}}>
+                    <button
+                      onClick={() => removeUser(u)}
+                      style={{
+                        background:'transparent', border:'1px solid transparent',
+                        borderRadius:8, padding:'6px 10px', color:'var(--muted)',
+                        fontSize:12, cursor:'pointer', transition:'all 0.15s'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(232,0,29,0.3)'; e.currentTarget.style.color='var(--red)'; e.currentTarget.style.background='var(--red-dim)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; e.currentTarget.style.background='transparent' }}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  )
+}
+
 /* ─── App ────────────────────────────────────────────────────────────── */
 export default function App() {
   const [session, setSession] = useState(null)
   const [checking, setChecking] = useState(true)
+  const [userRole, setUserRole] = useState(null)      // 'hr_admin' | 'viewer'
+  const [viewerProfile, setViewerProfile] = useState(null) // { dept_id, can_view_all }
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session); setChecking(false)
+      if (data.session) {
+        setSession(data.session)
+        detectRole(data.session.user.id)
+      } else {
+        setChecking(false)
+      }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => setSession(s))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      setSession(s)
+      if (s) detectRole(s.user.id)
+      else { setUserRole(null); setViewerProfile(null); setChecking(false) }
+    })
     return () => subscription.unsubscribe()
   }, [])
+
+  const detectRole = async (userId) => {
+    // Check hr_admins first
+    const { data: hrRecord } = await supabase
+      .from('hr_admins').select('id').eq('user_id', userId).maybeSingle()
+    if (hrRecord) {
+      setUserRole('hr_admin')
+      setChecking(false)
+      return
+    }
+    // Check org_users (viewer)
+    const { data: viewerRecord } = await supabase
+      .from('org_users').select('dept_id, can_view_all').eq('user_id', userId).maybeSingle()
+    if (viewerRecord) {
+      setUserRole('viewer')
+      setViewerProfile({ dept_id: viewerRecord.dept_id, can_view_all: viewerRecord.can_view_all })
+      setChecking(false)
+      return
+    }
+    // Unknown user — still let them in as viewer with no access
+    setUserRole('viewer')
+    setChecking(false)
+  }
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type, id: Date.now() })
@@ -1416,6 +1673,9 @@ export default function App() {
       <Login onLogin={() => {}}/>
     </>
   )
+
+  const roleBadgeColor = userRole === 'hr_admin' ? 'var(--red)' : 'var(--gold)'
+  const roleLabel = userRole === 'hr_admin' ? 'HR Admin' : 'Viewer'
 
   return (
     <>
@@ -1431,7 +1691,21 @@ export default function App() {
           <div className={`nav-item ${page==='dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
             {Icon.dashboard} Dashboard
           </div>
+          {userRole === 'hr_admin' && (
+            <div className={`nav-item ${page==='users' ? 'active' : ''}`} onClick={() => setPage('users')}>
+              {Icon.shieldUser} Viewer Access
+            </div>
+          )}
           <div className="sidebar-bottom">
+            <div style={{marginBottom:8}}>
+              <span style={{
+                display:'inline-block', padding:'2px 8px', borderRadius:6,
+                fontSize:10, fontWeight:600, letterSpacing:'1px', textTransform:'uppercase',
+                background: userRole === 'hr_admin' ? 'rgba(232,0,29,0.12)' : 'rgba(201,151,58,0.12)',
+                color: roleBadgeColor,
+                border: `1px solid ${userRole === 'hr_admin' ? 'rgba(232,0,29,0.25)' : 'rgba(201,151,58,0.25)'}`,
+              }}>{roleLabel}</span>
+            </div>
             <div className="user-badge">
               <div className="user-dot"/>
               <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -1444,7 +1718,7 @@ export default function App() {
 
         {/* Main */}
         <main className="main">
-          {page === 'staff' && <StaffPage showToast={showToast}/>}
+          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} viewerProfile={viewerProfile}/>}
           {page === 'dashboard' && (
             <div>
               <div className="page-title" style={{marginBottom:8}}>Dashboard</div>
@@ -1455,6 +1729,7 @@ export default function App() {
               </div>
             </div>
           )}
+          {page === 'users' && userRole === 'hr_admin' && <UsersPage showToast={showToast}/>}
         </main>
       </div>
 
