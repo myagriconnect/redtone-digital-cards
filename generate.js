@@ -579,7 +579,7 @@ async function main() {
   }
 
   const landing = generateLandingHTML(staff, orgs)
-  fs.writeFileSync('./dist/index.html', landing)
+  fs.writeFileSync('./dist/directory/index.html', landing)
   console.log(`  ✅  / (landing)  (${(landing.length / 1024).toFixed(1)} KB)`)
   console.log(`\n🎉 Done! ${staff.length} cards + landing page. Total: ${(totalSize / 1024).toFixed(1)} KB`)
 }
