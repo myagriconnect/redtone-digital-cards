@@ -1417,7 +1417,7 @@ function UsersPage({ showToast }) {
   const load = async () => {
     setLoading(true)
     const [u, d] = await Promise.all([
-      supabase.from('org_users').select('*, departments(name)').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
+      supabase.from('org_users_with_email').select('*, departments(name)').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
       supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name')
     ])
     setUsers(u.data || [])
@@ -1549,7 +1549,7 @@ function UsersPage({ showToast }) {
               {users.map((u, i) => (
                 <tr key={u.id} style={{borderBottom: i < users.length-1 ? '1px solid var(--border)' : 'none'}}>
                   <td style={{padding:'14px 20px'}}>
-                    <div style={{fontSize:13,fontWeight:500}}>{u.user_id}</div>
+                    <div style={{fontSize:13,fontWeight:500}}>{u.email || u.user_id}</div>
                     <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Viewer</div>
                   </td>
                   <td style={{padding:'14px 20px'}}>
