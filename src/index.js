@@ -239,8 +239,11 @@ export default {
 
     // Always serve /admin/* and static assets directly
     const staticPrefixes = ['/admin', '/assets', '/favicon']
-    if (path === '/' || staticPrefixes.some(p => path.startsWith(p))) {
-      return env.ASSETS.fetch(request)
+    if (path === '/') {
+    return Response.redirect(`${url.origin}/admin/`, 302)
+    }
+    if (staticPrefixes.some(p => path.startsWith(p))) {
+    return env.ASSETS.fetch(request)
     }
 
     // Try static asset first (existing staff cards baked at build time)
