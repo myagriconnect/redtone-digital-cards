@@ -101,7 +101,6 @@ async function generateCardHTML(s, org) {
       from { opacity:0; transform:translateY(20px); }
       to   { opacity:1; transform:translateY(0);    }
     }
-
     /* ── Header: logo bar ── */
     .card-logo-bar {
       background: linear-gradient(160deg, #0d1a2e 0%, #060b16 100%);
@@ -124,8 +123,7 @@ async function generateCardHTML(s, org) {
       color: var(--text);
     }
     .card-logo-text span { color: var(--red); }
-
-    /* ── Header: identity row (photo left, info right) ── */
+    /* ── Header: identity row ── */
     .card-identity {
       background: linear-gradient(160deg, #0d1a2e 0%, #060b16 100%);
       padding: 20px 24px 24px;
@@ -196,7 +194,6 @@ async function generateCardHTML(s, org) {
     }
     .staff-org-dept .dept-sep { color: rgba(255,255,255,0.2); margin: 0 4px; }
     .staff-org-dept .dept-name { color: var(--gold); }
-
     /* ── Contact items ── */
     .card-body { padding: 20px 24px; }
     .contact-item {
@@ -222,7 +219,6 @@ async function generateCardHTML(s, org) {
     .contact-icon svg { width: 16px; height: 16px; color: var(--red); }
     .contact-label  { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
     .contact-value  { font-size: 13px; font-weight: 500; }
-
     /* ── Footer: QR + Save button ── */
     .card-footer {
       padding: 16px 24px 28px;
@@ -460,107 +456,6 @@ async function generateCardHTML(s, org) {
 </html>`
 }
 
-// ── Generate landing page ────────────────────────────────────────────────────
-function generateLandingHTML(staff, orgs) {
-  const org     = orgs?.[0]
-  const orgName = org?.name || 'REDtone IoT'
-  const logoUrl = org?.card_templates?.[0]?.logo_url || ''
-
-  const cards = staff.map((s, i) => {
-    const initials = s.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    return `
-    <a class="staff-card" href="/${s.card_slug}/" style="animation-delay:${i * 0.06}s">
-      <div class="avatar">
-        ${s.photo_url
-          ? `<img src="${s.photo_url}" alt="${s.full_name}"/>`
-          : `<span>${initials}</span>`
-        }
-      </div>
-      <div class="info">
-        <div class="name">${s.full_name}</div>
-        <div class="pos">${s.position}</div>
-        ${s.departments?.name ? `<div class="dept">${s.departments.name}</div>` : ''}
-      </div>
-      <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </a>`
-  }).join('')
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${orgName} — Digital Cards</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
-    body {
-      min-height: 100vh;
-      background: #060b16;
-      font-family: 'Outfit', -apple-system, sans-serif;
-      color: #f0f2f7;
-      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,0,29,0.10) 0%, transparent 60%);
-    }
-    .header {
-      text-align: center;
-      padding: 44px 24px 28px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .header img  { height: 36px; margin-bottom: 14px; display: block; margin-left: auto; margin-right: auto; }
-    .header-logo-text { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px; margin-bottom: 14px; }
-    .header-logo-text span { color: #E8001D; }
-    .header h1   { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 3px; color: #f0f2f7; }
-    .header p    { font-size: 12px; color: #8892a4; margin-top: 4px; letter-spacing: 1px; }
-    .list { max-width: 480px; margin: 28px auto; padding: 0 20px 48px; }
-    .staff-card {
-      display: flex; align-items: center; gap: 16px;
-      background: #0f1824;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 16px;
-      padding: 14px 18px;
-      margin-bottom: 10px;
-      text-decoration: none; color: inherit;
-      transition: all 0.2s;
-      animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
-    }
-    .staff-card:hover { border-color: rgba(232,0,29,0.4); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    .avatar {
-      width: 50px; height: 50px; border-radius: 50%;
-      border: 2px solid #E8001D; overflow: hidden; flex-shrink: 0;
-      background: linear-gradient(135deg, #1e2e50, #0d1a2e);
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: #E8001D;
-    }
-    .avatar img { width:100%; height:100%; object-fit:cover; object-position:center top; }
-    .info { flex: 1; min-width: 0; }
-    .name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pos  { font-size: 11px; color: #8892a4; margin-top: 2px; }
-    .dept { font-size: 10px; color: #C9973A; margin-top: 2px; }
-    .arrow { width: 16px; height: 16px; color: #8892a4; flex-shrink: 0; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    ${logoUrl
-      ? `<img src="${logoUrl}" alt="${orgName}"/>`
-      : `<div class="header-logo-text"><span>RED</span>tone</div>`
-    }
-    <h1>Digital Cards</h1>
-    <p>${staff.length} Team Member${staff.length !== 1 ? 's' : ''}</p>
-  </div>
-  <div class="list">${cards}</div>
-  <div id="wa-toast" style="display:none;opacity:0;transition:opacity 0.4s;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#25D366;color:#fff;padding:14px 20px;border-radius:12px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;align-items:center;gap:10px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:320px;text-align:center;">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-  Thanks! Tap here to say hi on WhatsApp 👋
-</div>
-</body>
-</html>`
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const { orgs, staff } = await fetchData()
@@ -578,10 +473,7 @@ async function main() {
     console.log(`  ✅  /${s.card_slug}/  (${(html.length / 1024).toFixed(1)} KB)`)
   }
 
-  /*const landing = generateLandingHTML(staff, orgs)
-  fs.writeFileSync('./dist/index.html', landing)
-  console.log(`  ✅  / (landing)  (${(landing.length / 1024).toFixed(1)} KB)`)
-  console.log(`\n🎉 Done! ${staff.length} cards + landing page. Total: ${(totalSize / 1024).toFixed(1)} KB`)
-}*/
+  console.log(`\n🎉 Done! ${staff.length} cards generated. Total: ${(totalSize / 1024).toFixed(1)} KB`)
+}
 
 main().catch(e => { console.error('❌', e.message); process.exit(1) })
