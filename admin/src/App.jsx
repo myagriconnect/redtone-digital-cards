@@ -1,3 +1,4 @@
+// v3 — theme + signup + subscriptions + multi-org
 import { useState, useEffect, useRef } from 'react'
 import { supabase, supabaseAdmin } from './supabase'
 // ORG_ID is now resolved dynamically from the logged-in user's record
