@@ -8,7 +8,8 @@ const css = `
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
+  /* ── Dark mode (default) ── */
+  :root, [data-theme="dark"] {
     --red: #E8001D;
     --red-dim: rgba(232,0,29,0.12);
     --red-glow: rgba(232,0,29,0.25);
@@ -21,6 +22,25 @@ const css = `
     --gold: #C9973A;
     --green: #22c55e;
     --green-dim: rgba(34,197,94,0.1);
+    --bg-gradient: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,0,29,0.08) 0%, transparent 60%),
+                   radial-gradient(ellipse 40% 30% at 80% 80%, rgba(201,151,58,0.04) 0%, transparent 50%);
+  }
+
+  /* ── Light mode ── */
+  [data-theme="light"] {
+    --red: #D0001A;
+    --red-dim: rgba(208,0,26,0.08);
+    --red-glow: rgba(208,0,26,0.2);
+    --dark: #f0f2f7;
+    --card: #ffffff;
+    --border: rgba(0,0,0,0.08);
+    --border-hover: rgba(208,0,26,0.3);
+    --text: #0f1824;
+    --muted: #6b7280;
+    --gold: #b07d20;
+    --green: #16a34a;
+    --green-dim: rgba(22,163,74,0.1);
+    --bg-gradient: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(208,0,26,0.04) 0%, transparent 60%);
   }
 
   body {
@@ -28,10 +48,91 @@ const css = `
     font-family: 'Outfit', sans-serif;
     color: var(--text);
     min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,0,29,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(201,151,58,0.04) 0%, transparent 50%);
+    background-image: var(--bg-gradient);
+    transition: background 0.3s, color 0.3s;
   }
+
+  /* ── Theme toggle button ── */
+  .theme-toggle {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--red); color: var(--red); }
+  .theme-toggle svg { width: 16px; height: 16px; }
+
+  /* ── Signup page ── */
+  .signup-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .signup-card {
+    width: 460px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03);
+    animation: fadeUp 0.6s cubic-bezier(.22,1,.36,1) both;
+  }
+  .signup-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .signup-step {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .signup-step.active { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .signup-step.done { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .signup-step-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Trial banner ── */
+  .trial-banner {
+    background: rgba(201,151,58,0.1);
+    border: 1px solid rgba(201,151,58,0.25);
+    border-radius: 10px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .trial-banner strong { font-weight: 700; }
+
+  /* ── Read-only overlay ── */
+  .readonly-banner {
+    background: rgba(232,0,29,0.08);
+    border: 1px solid rgba(232,0,29,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 20px;
+  }
+  .readonly-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
 
   /* ── Login ── */
   .login-wrap {
@@ -711,7 +812,7 @@ const genCode = () => {
   return `rt-${num}`
 }
 
-function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
+function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: ORG_ID, staffLimit }) {
   const isEdit = !!staff?.id
   const [form, setForm] = useState({
     full_name: staff?.full_name || '',
@@ -733,6 +834,13 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
   const handleSave = async () => {
     if (!form.full_name || !form.position || !form.email) {
       showToast('Name, position and email are required', 'error'); return
+    }
+    // Staff limit check for new staff only
+    if (!isEdit && staffLimit) {
+      const { count } = await supabase.from('staff').select('id', { count: 'exact', head: true }).eq('org_id', ORG_ID).eq('is_active', true)
+      if (count >= staffLimit) {
+        showToast(`Staff limit reached (${staffLimit}). Upgrade your plan to add more.`, 'error'); return
+      }
     }
     setSaving(true)
     try {
@@ -1142,7 +1250,7 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
 }
 
 /* ─── Staff List ─────────────────────────────────────────────────────── */
-function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile }) {
+function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadOnly, staffLimit }) {
   const ORG_ID = orgId
   const isHR = userRole === 'admin' || userRole === 'super_admin'
   const [staff, setStaff] = useState([])
@@ -1203,6 +1311,12 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile }) {
 
   return (
     <>
+      {isReadOnly && (
+        <div className="readonly-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Read-only mode — your trial has expired. Contact us to upgrade and regain full access.
+        </div>
+      )}
       <div className="page-header">
         <div>
           <div className="page-title">Staff Management</div>
@@ -1213,10 +1327,16 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile }) {
         </div>
         {isHR && (
           <div style={{ display:'flex', gap:10 }}>
-            <button className="btn-secondary" onClick={() => setImportModal(true)}>
+            <button className="btn-secondary" onClick={() => {
+              if (isReadOnly) { showToast('Upgrade your plan to import staff', 'error'); return }
+              setImportModal(true)
+            }}>
               {Icon.upload} Import CSV
             </button>
-            <button className="btn-primary" onClick={() => setModal('add')}>
+            <button className="btn-primary" onClick={() => {
+              if (isReadOnly) { showToast('Upgrade your plan to add staff', 'error'); return }
+              setModal('add')
+            }}>
               {Icon.plus} Add Staff
             </button>
           </div>
@@ -1353,6 +1473,8 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile }) {
           onClose={() => setModal(null)}
           onSaved={load}
           showToast={showToast}
+          orgId={ORG_ID}
+          staffLimit={staffLimit}
         />
       )}
 
@@ -1983,6 +2105,219 @@ function OrgPage({ org, setOrg, orgId, showToast }) {
   )
 }
 
+
+/* ─── Signup Page ────────────────────────────────────────────────────── */
+function Signup() {
+  const [step, setStep] = useState(1)       // 1=auth, 2=company, 3=done
+  const [email, setEmail] = useState('')
+  const [pass, setPass] = useState('')
+  const [pass2, setPass2] = useState('')
+  const [form, setForm] = useState({ name: '', slug: '', industry: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  // Step 1: Create auth user
+  const handleAuth = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (pass !== pass2) { setError('Passwords do not match'); return }
+    setLoading(true)
+    const { error } = await supabase.auth.signUp({ email: email.trim(), password: pass })
+    if (error) { setError(error.message); setLoading(false); return }
+    setStep(2)
+    setLoading(false)
+  }
+
+  // Step 2: Create org + super_admin + trial subscription
+  const handleCompany = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!form.name.trim()) { setError('Company name is required'); return }
+    if (!form.slug.trim()) { setError('URL slug is required'); return }
+    setLoading(true)
+    try {
+      // Get the newly created user session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Session not found — please try signing in')
+
+      const userId = session.user.id
+
+      // Check slug is unique
+      const { data: existing } = await supabase
+        .from('organizations').select('id').eq('slug', form.slug.trim()).maybeSingle()
+      if (existing) { setError('That URL slug is already taken. Try a different one.'); setLoading(false); return }
+
+      // Create org
+      const orgId = crypto.randomUUID()
+      const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString()
+
+      const { error: orgErr } = await supabaseAdmin.from('organizations').insert({
+        id: orgId,
+        name: form.name.trim(),
+        slug: form.slug.trim(),
+        industry: form.industry.trim() || null,
+        primary_color: '#E8001D',
+        secondary_color: '#C9973A',
+        is_active: true,
+      })
+      if (orgErr) throw orgErr
+
+      // Create super_admin record
+      const { error: saErr } = await supabaseAdmin.from('super_admins').insert({
+        user_id: userId,
+        org_id: orgId,
+      })
+      if (saErr) throw saErr
+
+      // Create trial subscription (14 days, 10 staff)
+      const { error: subErr } = await supabaseAdmin.from('subscriptions').insert({
+        org_id: orgId,
+        plan: 'trial',
+        status: 'active',
+        staff_limit: 10,
+        trial_ends_at: trialEnds,
+      })
+      if (subErr) throw subErr
+
+      setStep(3)
+    } catch(e) {
+      setError(e.message || 'Setup failed — please try again')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const StepIndicator = () => (
+    <div className="signup-steps">
+      {[1,2,3].map((s, i) => (
+        <>
+          <div key={s} className={`signup-step ${step === s ? 'active' : step > s ? 'done' : ''}`}>
+            {step > s ? '✓' : s}
+          </div>
+          {i < 2 && <div className="signup-step-line"/>}
+        </>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="signup-wrap">
+      <div className="signup-card">
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:3}}>
+            <span style={{color:'var(--red)'}}>Card</span>Sync
+          </div>
+          <button
+            onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t) }}
+            style={{
+              width:32,height:32,borderRadius:8,border:'1px solid var(--border)',
+              background:'transparent',color:'var(--muted)',cursor:'pointer',
+              display:'flex',alignItems:'center',justifyContent:'center'
+            }}
+          >
+            {theme === 'dark'
+              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            }
+          </button>
+        </div>
+
+        <StepIndicator/>
+
+        {error && <div className="error-msg">{error}</div>}
+
+        {/* ── Step 1: Auth ── */}
+        {step === 1 && (
+          <>
+            <div style={{marginBottom:4,fontSize:18,fontWeight:700,color:'var(--text)'}}>Create your account</div>
+            <div style={{fontSize:13,color:'var(--muted)',marginBottom:24}}>Start your 14-day free trial. No credit card required.</div>
+            <form onSubmit={handleAuth}>
+              <label className="login-label">Work Email</label>
+              <input className="login-input" type="email" value={email}
+                onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus/>
+              <label className="login-label">Password</label>
+              <input className="login-input" type="password" value={pass}
+                onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters"/>
+              <label className="login-label">Confirm Password</label>
+              <input className="login-input" type="password" value={pass2}
+                onChange={e => setPass2(e.target.value)} placeholder="Repeat password"/>
+              <button className="login-btn" type="submit" disabled={loading}>
+                {loading ? 'Creating account...' : 'Continue →'}
+              </button>
+            </form>
+            <div style={{textAlign:'center',marginTop:16,fontSize:13,color:'var(--muted)'}}>
+              Already have an account?{' '}
+              <a href="/admin/" style={{color:'var(--red)',textDecoration:'none'}}>Sign in</a>
+            </div>
+          </>
+        )}
+
+        {/* ── Step 2: Company Info ── */}
+        {step === 2 && (
+          <>
+            <div style={{marginBottom:4,fontSize:18,fontWeight:700,color:'var(--text)'}}>Set up your organization</div>
+            <div style={{fontSize:13,color:'var(--muted)',marginBottom:24}}>This will be used on your staff digital cards.</div>
+            <form onSubmit={handleCompany}>
+              <label className="login-label">Company Name *</label>
+              <input className="login-input" value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: slugify(e.target.value) }))}
+                placeholder="e.g. Acme Sdn Bhd" autoFocus/>
+              <label className="login-label">URL Slug *</label>
+              <div style={{position:'relative',marginBottom:16}}>
+                <input
+                  style={{
+                    width:'100%', background:'rgba(255,255,255,0.04)', border:'1px solid var(--border)',
+                    borderRadius:10, padding:'12px 16px', color:'var(--text)',
+                    fontFamily:"'Outfit',sans-serif", fontSize:14, outline:'none',
+                    paddingLeft:0
+                  }}
+                  value={form.slug}
+                  onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))}
+                  placeholder="acme"
+                />
+                <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>
+                  Cards will be at: <span style={{color:'var(--red)'}}>yourdomain.com/{form.slug || 'your-slug'}/staff-name/</span>
+                </div>
+              </div>
+              <label className="login-label">Industry</label>
+              <input className="login-input" value={form.industry}
+                onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
+                placeholder="e.g. Technology, Healthcare, Finance"/>
+              <button className="login-btn" type="submit" disabled={loading}>
+                {loading ? 'Setting up...' : 'Create Organization →'}
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* ── Step 3: Success ── */}
+        {step === 3 && (
+          <div style={{textAlign:'center',padding:'20px 0'}}>
+            <div style={{fontSize:48,marginBottom:16}}>🎉</div>
+            <div style={{fontSize:20,fontWeight:700,color:'var(--text)',marginBottom:8}}>You're all set!</div>
+            <div style={{fontSize:14,color:'var(--muted)',lineHeight:1.6,marginBottom:28}}>
+              Your organization has been created with a <strong style={{color:'var(--gold)'}}>14-day free trial</strong>.
+              Head to your dashboard to start adding staff.
+            </div>
+            <button className="login-btn" onClick={() => window.location.href = '/admin/'}>
+              Go to Dashboard →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ─── App ────────────────────────────────────────────────────────────── */
 export default function App() {
   const [session, setSession] = useState(null)
@@ -1992,9 +2327,19 @@ export default function App() {
   const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
   const [orgId, setOrgId] = useState(null)
   const [org, setOrg] = useState(null)
+  const [subscription, setSubscription] = useState(null)
   const [viewerProfile, setViewerProfile] = useState(null)
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
   useEffect(() => {
     const hash = window.location.hash
@@ -2027,14 +2372,18 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
       setSession(s)
       if (s) detectRole(s.user.id)
-      else { setUserRole(null); setViewerProfile(null); setOrgId(null); setOrg(null); setChecking(false) }
+      else { setUserRole(null); setViewerProfile(null); setOrgId(null); setOrg(null); setSubscription(null); setChecking(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
 
   const fetchOrg = async (id) => {
-    const { data } = await supabase.from('organizations').select('*').eq('id', id).single()
-    if (data) setOrg(data)
+    const [orgRes, subRes] = await Promise.all([
+      supabase.from('organizations').select('*').eq('id', id).single(),
+      supabase.from('subscriptions').select('*').eq('org_id', id).maybeSingle()
+    ])
+    if (orgRes.data) setOrg(orgRes.data)
+    if (subRes.data) setSubscription(subRes.data)
   }
 
   const detectRole = async (userId) => {
@@ -2042,6 +2391,7 @@ export default function App() {
     setUserRole(null)
     setViewerProfile(null)
     setOrgId(null)
+    setSubscription(null)
 
     // Check super_admins first
     const { data: superRecord } = await supabase
@@ -2084,6 +2434,14 @@ export default function App() {
 
   if (checking) return null
 
+  // Route to signup page if on /signup/
+  if (window.location.pathname.startsWith('/signup')) return (
+    <>
+      <style>{css}</style>
+      <Signup/>
+    </>
+  )
+
   if (!session) return (
     <>
       <style>{css}</style>
@@ -2101,21 +2459,23 @@ export default function App() {
     </>
   )
 
-  if (needsPassword) return (
-    <>
-      <style>{css}</style>
-      <SetPassword mode={passwordMode} onDone={() => {
-        setNeedsPassword(false)
-        detectRole(session.user.id)
-      }}/>
-    </>
-  )
-
   const isSuperAdmin = userRole === 'super_admin'
   const isAdmin = userRole === 'admin' || userRole === 'super_admin'
-  const ORG_ID = orgId  // dynamic — resolved from logged-in user
+  const ORG_ID = orgId
   const roleBadgeColor = isSuperAdmin ? 'var(--gold)' : isAdmin ? 'var(--red)' : 'var(--muted)'
   const roleLabel = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Viewer'
+
+  // Subscription helpers
+  const subStatus = subscription?.status || 'active'
+  const subPlan = subscription?.plan || 'trial'
+  const staffLimit = subscription?.staff_limit || 10
+  const isTrialExpired = subPlan === 'trial' && subscription?.trial_ends_at
+    && new Date() > new Date(subscription.trial_ends_at)
+  const isExpired = subStatus === 'expired' || subStatus === 'suspended' || isTrialExpired
+  const isReadOnly = isExpired  // expired = read-only dashboard, card URLs blocked
+  const trialDaysLeft = subscription?.trial_ends_at
+    ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at) - new Date()) / 86400000))
+    : null
 
   return (
     <>
@@ -2151,7 +2511,7 @@ export default function App() {
             </div>
           )}
           <div className="sidebar-bottom">
-            <div style={{marginBottom:8}}>
+            <div style={{marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <span style={{
                 display:'inline-block', padding:'2px 8px', borderRadius:6,
                 fontSize:10, fontWeight:600, letterSpacing:'1px', textTransform:'uppercase',
@@ -2159,7 +2519,31 @@ export default function App() {
                 color: roleBadgeColor,
                 border: `1px solid ${isSuperAdmin ? 'rgba(201,151,58,0.25)' : isAdmin ? 'rgba(232,0,29,0.25)' : 'rgba(255,255,255,0.12)'}`,
               }}>{roleLabel}</span>
+              <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {theme === 'dark'
+                  ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                  : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                }
+              </button>
             </div>
+            {subPlan === 'trial' && !isExpired && trialDaysLeft !== null && (
+              <div style={{
+                background:'rgba(201,151,58,0.1)', border:'1px solid rgba(201,151,58,0.25)',
+                borderRadius:8, padding:'8px 10px', marginBottom:8, fontSize:11, color:'var(--gold)',
+                lineHeight:1.4
+              }}>
+                ⏳ Trial: <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''}</strong> remaining
+              </div>
+            )}
+            {isExpired && (
+              <div style={{
+                background:'var(--red-dim)', border:'1px solid rgba(232,0,29,0.25)',
+                borderRadius:8, padding:'8px 10px', marginBottom:8, fontSize:11, color:'var(--red)',
+                lineHeight:1.4
+              }}>
+                ⚠️ Trial expired — read-only mode.<br/>Contact us to upgrade.
+              </div>
+            )}
             <div className="user-badge">
               <div className="user-dot"/>
               <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -2172,7 +2556,7 @@ export default function App() {
 
         {/* Main */}
         <main className="main">
-          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} orgId={ORG_ID} viewerProfile={viewerProfile}/>}
+          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} orgId={ORG_ID} viewerProfile={viewerProfile} isReadOnly={isReadOnly} staffLimit={staffLimit}/>}
           {page === 'dashboard' && (
             <div>
               <div className="page-title" style={{marginBottom:8}}>Dashboard</div>
