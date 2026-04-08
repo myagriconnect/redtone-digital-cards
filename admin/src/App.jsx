@@ -739,11 +739,11 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     try {
       let photo_url = staff?.photo_url || null
 
-      // Upload photo using service role key (bypasses storage RLS — guaranteed to work)
+      // Upload photo using service role key (bypasses storage policies)
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabaseAdmin.storage
+        const { error: upErr } = await supabase.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
         if (upErr) {
@@ -1416,11 +1416,15 @@ function UsersPage({ showToast }) {
 
   const load = async () => {
     setLoading(true)
-    const [u, d] = await Promise.all([
+    const [u, d, a] = await Promise.all([
       supabase.from('org_users_with_email').select('*, departments(name)').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
-      supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name')
+      supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name'),
+      supabase.from('hr_admins_with_email').select('*').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
     ])
-    setUsers(u.data || [])
+    // Merge viewers + admins into one list, tagging each with isAdmin
+    const viewers = (u.data || []).map(x => ({ ...x, isAdmin: false }))
+    const admins  = (a.data || []).map(x => ({ ...x, isAdmin: true }))
+    setUsers([...admins, ...viewers])
     setDepartments(d.data || [])
     setLoading(false)
   }
@@ -1472,11 +1476,53 @@ function UsersPage({ showToast }) {
   }
 
   const removeUser = async (u) => {
-    if (!confirm(`Remove viewer access for this user?`)) return
-    const { error } = await supabase.from('org_users').delete().eq('id', u.id)
+    const table = u.isAdmin ? 'hr_admins' : 'org_users'
+    const label = u.isAdmin ? 'admin access' : 'viewer access'
+    if (!confirm(`Remove ${label} for ${u.email}?`)) return
+    const { error } = await supabaseAdmin.from(table).delete().eq('id', u.id)
     if (error) { showToast('Remove failed', 'error'); return }
-    showToast('Viewer access removed', 'success')
+    showToast('Access removed', 'success')
     load()
+  }
+
+  const toggleAdminRole = async (u) => {
+    if (u.isAdmin) {
+      // Demote: hr_admins → org_users
+      if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
+      try {
+        const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
+          org_id: ORG_ID,
+          user_id: u.user_id,
+          role: 'viewer',
+          dept_id: null,
+          can_view_all: true,
+        })
+        if (insertErr) throw insertErr
+        const { error: deleteErr } = await supabaseAdmin.from('hr_admins').delete().eq('id', u.id)
+        if (deleteErr) throw deleteErr
+        showToast(`${u.email} demoted to Viewer`, 'success')
+        load()
+      } catch (e) {
+        showToast(e.message || 'Demote failed', 'error')
+      }
+    } else {
+      // Promote: org_users → hr_admins
+      if (!confirm(`Promote ${u.email} to HR Admin? They will get full edit access.`)) return
+      try {
+        const { error: insertErr } = await supabaseAdmin.from('hr_admins').insert({
+          org_id: ORG_ID,
+          user_id: u.user_id,
+          role: 'hr_admin',
+        })
+        if (insertErr) throw insertErr
+        const { error: deleteErr } = await supabaseAdmin.from('org_users').delete().eq('id', u.id)
+        if (deleteErr) throw deleteErr
+        showToast(`${u.email} promoted to HR Admin`, 'success')
+        load()
+      } catch (e) {
+        showToast(e.message || 'Promote failed', 'error')
+      }
+    }
   }
 
   return (
@@ -1484,7 +1530,7 @@ function UsersPage({ showToast }) {
       <div className="page-header">
         <div>
           <div className="page-title">Viewer Access</div>
-          <div className="page-sub">Manage staff who can view cards but not edit</div>
+          <div className="page-sub">Manage viewers and HR admins</div>
         </div>
       </div>
 
@@ -1542,6 +1588,7 @@ function UsersPage({ showToast }) {
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>User</th>
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Department</th>
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Access Level</th>
+                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Admin</th>
                 <th style={{textAlign:'right',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Actions</th>
               </tr>
             </thead>
@@ -1550,10 +1597,12 @@ function UsersPage({ showToast }) {
                 <tr key={u.id} style={{borderBottom: i < users.length-1 ? '1px solid var(--border)' : 'none'}}>
                   <td style={{padding:'14px 20px'}}>
                     <div style={{fontSize:13,fontWeight:500}}>{u.email || u.user_id}</div>
-                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>Viewer</div>
+                    <div style={{fontSize:11,color: u.isAdmin ? 'var(--red)' : 'var(--muted)',marginTop:2}}>{u.isAdmin ? 'HR Admin' : 'Viewer'}</div>
                   </td>
                   <td style={{padding:'14px 20px'}}>
-                    {u.can_view_all ? (
+                    {u.isAdmin ? (
+                      <span style={{color:'var(--red)',fontSize:12}}>Full Access</span>
+                    ) : u.can_view_all ? (
                       <span style={{color:'var(--gold)',fontSize:12}}>All Departments</span>
                     ) : (
                       <select
@@ -1567,24 +1616,52 @@ function UsersPage({ showToast }) {
                     )}
                   </td>
                   <td style={{padding:'14px 20px'}}>
+                    {u.isAdmin ? (
+                      <span style={{fontSize:12,color:'var(--muted)'}}>—</span>
+                    ) : (
+                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
+                        <div
+                          onClick={() => toggleViewAll(u)}
+                          style={{
+                            width:36, height:20, borderRadius:10,
+                            background: u.can_view_all ? 'var(--green)' : 'rgba(255,255,255,0.1)',
+                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
+                          }}
+                        >
+                          <div style={{
+                            width:14, height:14, borderRadius:'50%', background:'white',
+                            position:'absolute', top:3,
+                            left: u.can_view_all ? 19 : 3,
+                            transition:'left 0.2s'
+                          }}/>
+                        </div>
+                        <span style={{fontSize:12,color: u.can_view_all ? 'var(--green)' : 'var(--muted)'}}>
+                          {u.can_view_all ? 'All departments' : 'Own dept only'}
+                        </span>
+                      </label>
+                    )}
+                  </td>
+                  <td style={{padding:'14px 20px'}}>
+                    {/* Admin toggle — two-way promote/demote */}
                     <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
                       <div
-                        onClick={() => toggleViewAll(u)}
+                        onClick={() => toggleAdminRole(u)}
+                        title={u.isAdmin ? 'Demote to Viewer' : 'Promote to HR Admin'}
                         style={{
                           width:36, height:20, borderRadius:10,
-                          background: u.can_view_all ? 'var(--green)' : 'rgba(255,255,255,0.1)',
+                          background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
                           position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
                         }}
                       >
                         <div style={{
-                          width:14, height:14, borderRadius:50, background:'white',
+                          width:14, height:14, borderRadius:'50%', background:'white',
                           position:'absolute', top:3,
-                          left: u.can_view_all ? 19 : 3,
+                          left: u.isAdmin ? 19 : 3,
                           transition:'left 0.2s'
                         }}/>
                       </div>
-                      <span style={{fontSize:12,color: u.can_view_all ? 'var(--green)' : 'var(--muted)'}}>
-                        {u.can_view_all ? 'All departments' : 'Own dept only'}
+                      <span style={{fontSize:12, color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
+                        {u.isAdmin ? 'Admin' : 'Viewer'}
                       </span>
                     </label>
                   </td>
