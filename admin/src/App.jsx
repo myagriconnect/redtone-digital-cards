@@ -1369,12 +1369,59 @@ function StaffPage({ showToast, userRole, viewerProfile }) {
   )
 }
 
+/* ─── Set Password (invite + reset flow) ────────────────────────────── */
+function SetPassword({ onDone, mode }) {
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSet = async (e) => {
+    e.preventDefault()
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (pass !== confirm) { setError('Passwords do not match'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.updateUser({ password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+    else onDone()
+  }
+
+  const isInvite = mode === 'invite'
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
+          {isInvite
+            ? 'Welcome! Please set a password to complete your account setup.'
+            : 'Enter a new password for your account.'}
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSet}>
+          <label className="login-label">New Password</label>
+          <input className="login-input" type="password" value={pass}
+            onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters" autoFocus/>
+          <label className="login-label">Confirm Password</label>
+          <input className="login-input" type="password" value={confirm}
+            onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Saving...' : (isInvite ? 'Set Password & Continue' : 'Reset Password & Continue')}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Login ──────────────────────────────────────────────────────────── */
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [view, setView] = useState('login')       // 'login' | 'forgot' | 'forgot_sent'
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -1384,6 +1431,78 @@ function Login({ onLogin }) {
     else onLogin()
   }
 
+  const handleForgot = async (e) => {
+    e.preventDefault()
+    if (!email.trim()) { setError('Please enter your email address'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + window.location.pathname,
+    })
+    if (error) { setError(error.message); setLoading(false) }
+    else { setView('forgot_sent'); setLoading(false) }
+  }
+
+  // ── Forgot sent confirmation ──
+  if (view === 'forgot_sent') return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">Check Your Email</div>
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{fontSize:40,marginBottom:16}}>📬</div>
+          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>
+            We sent a password reset link to
+          </div>
+          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>
+            {email}
+          </div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>
+            Check your inbox and click the link to reset your password. The link expires in 1 hour.
+          </div>
+        </div>
+        <button
+          className="login-btn"
+          style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
+          onClick={() => { setView('login'); setError('') }}
+        >
+          Back to Sign In
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Forgot password form ──
+  if (view === 'forgot') return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">Reset Password</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
+          Enter your email and we'll send you a reset link.
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleForgot}>
+          <label className="login-label">Email</label>
+          <input className="login-input" type="email" value={email}
+            onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Sending...' : 'Send Reset Link'}
+          </button>
+        </form>
+        <button
+          onClick={() => { setView('login'); setError('') }}
+          style={{
+            width:'100%', marginTop:12, background:'transparent', border:'none',
+            color:'var(--muted)', fontSize:13, cursor:'pointer', padding:'8px',
+          }}
+        >
+          ← Back to Sign In
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Normal login form ──
   return (
     <div className="login-wrap">
       <div className="login-card">
@@ -1399,6 +1518,18 @@ function Login({ onLogin }) {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+        <button
+          onClick={() => { setView('forgot'); setError('') }}
+          style={{
+            width:'100%', marginTop:12, background:'transparent', border:'none',
+            color:'var(--muted)', fontSize:13, cursor:'pointer', padding:'8px',
+            transition:'color 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color='var(--text)'}
+          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}
+        >
+          Forgot password?
+        </button>
       </div>
     </div>
   )
@@ -1486,7 +1617,6 @@ function UsersPage({ showToast, isSuperAdmin }) {
 
   const toggleAdminRole = async (u) => {
     if (u.isAdmin) {
-      // Demote: hr_admins → org_users (Super Admin only)
       if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
@@ -1500,7 +1630,6 @@ function UsersPage({ showToast, isSuperAdmin }) {
         load()
       } catch (e) { showToast(e.message || 'Demote failed', 'error') }
     } else {
-      // Promote: org_users → hr_admins (Super Admin only)
       if (!confirm(`Promote ${u.email} to Admin? They will get full edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('hr_admins').insert({
@@ -1684,12 +1813,33 @@ function UsersPage({ showToast, isSuperAdmin }) {
 export default function App() {
   const [session, setSession] = useState(null)
   const [checking, setChecking] = useState(true)
+  const [needsPassword, setNeedsPassword] = useState(false)
+  const [passwordMode, setPasswordMode] = useState('invite')  // 'invite' | 'recovery'
   const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
   const [viewerProfile, setViewerProfile] = useState(null) // { dept_id, can_view_all }
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
 
   useEffect(() => {
+    const hash = window.location.hash
+    const isInvite = hash.includes('type=invite')
+    const isRecovery = hash.includes('type=recovery')
+
+    if (isInvite || isRecovery) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setSession(data.session)
+          setPasswordMode(isInvite ? 'invite' : 'recovery')
+          setNeedsPassword(true)
+          setChecking(false)
+          window.history.replaceState(null, '', window.location.pathname)
+        } else {
+          setChecking(false)
+        }
+      })
+      return
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         setSession(data.session)
@@ -1732,7 +1882,6 @@ export default function App() {
       setChecking(false)
       return
     }
-    // Unknown user — still let them in as viewer with no access
     setUserRole('viewer')
     setChecking(false)
   }
@@ -1747,6 +1896,16 @@ export default function App() {
     <>
       <style>{css}</style>
       <Login onLogin={() => {}}/>
+    </>
+  )
+
+  if (needsPassword) return (
+    <>
+      <style>{css}</style>
+      <SetPassword mode={passwordMode} onDone={() => {
+        setNeedsPassword(false)
+        detectRole(session.user.id)
+      }}/>
     </>
   )
 
