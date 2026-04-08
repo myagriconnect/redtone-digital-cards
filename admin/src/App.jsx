@@ -1421,7 +1421,7 @@ function Login({ onLogin }) {
   const [pass, setPass] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [view, setView] = useState('login')       // 'login' | 'forgot' | 'forgot_sent'
+  const [view, setView] = useState('login')
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -1442,7 +1442,6 @@ function Login({ onLogin }) {
     else { setView('forgot_sent'); setLoading(false) }
   }
 
-  // ── Forgot sent confirmation ──
   if (view === 'forgot_sent') return (
     <div className="login-wrap">
       <div className="login-card">
@@ -1450,28 +1449,18 @@ function Login({ onLogin }) {
         <div className="login-subtitle">Check Your Email</div>
         <div style={{textAlign:'center',marginBottom:24}}>
           <div style={{fontSize:40,marginBottom:16}}>📬</div>
-          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>
-            We sent a password reset link to
-          </div>
-          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>
-            {email}
-          </div>
-          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>
-            Check your inbox and click the link to reset your password. The link expires in 1 hour.
-          </div>
+          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>We sent a password reset link to</div>
+          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>{email}</div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>Check your inbox and click the link to reset your password. The link expires in 1 hour.</div>
         </div>
-        <button
-          className="login-btn"
-          style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
-          onClick={() => { setView('login'); setError('') }}
-        >
+        <button className="login-btn" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
+          onClick={() => { setView('login'); setError('') }}>
           Back to Sign In
         </button>
       </div>
     </div>
   )
 
-  // ── Forgot password form ──
   if (view === 'forgot') return (
     <div className="login-wrap">
       <div className="login-card">
@@ -1489,20 +1478,14 @@ function Login({ onLogin }) {
             {loading ? 'Sending...' : 'Send Reset Link'}
           </button>
         </form>
-        <button
-          onClick={() => { setView('login'); setError('') }}
-          style={{
-            width:'100%', marginTop:12, background:'transparent', border:'none',
-            color:'var(--muted)', fontSize:13, cursor:'pointer', padding:'8px',
-          }}
-        >
+        <button onClick={() => { setView('login'); setError('') }}
+          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px'}}>
           ← Back to Sign In
         </button>
       </div>
     </div>
   )
 
-  // ── Normal login form ──
   return (
     <div className="login-wrap">
       <div className="login-card">
@@ -1518,16 +1501,10 @@ function Login({ onLogin }) {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <button
-          onClick={() => { setView('forgot'); setError('') }}
-          style={{
-            width:'100%', marginTop:12, background:'transparent', border:'none',
-            color:'var(--muted)', fontSize:13, cursor:'pointer', padding:'8px',
-            transition:'color 0.15s',
-          }}
+        <button onClick={() => { setView('forgot'); setError('') }}
+          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px',transition:'color 0.15s'}}
           onMouseEnter={e => e.currentTarget.style.color='var(--text)'}
-          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}
-        >
+          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}>
           Forgot password?
         </button>
       </div>
@@ -1620,8 +1597,7 @@ function UsersPage({ showToast, isSuperAdmin }) {
       if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
-          org_id: ORG_ID, user_id: u.user_id, role: 'viewer',
-          dept_id: null, can_view_all: true,
+          org_id: ORG_ID, user_id: u.user_id, role: 'viewer', dept_id: null, can_view_all: true,
         })
         if (insertErr) throw insertErr
         const { error: deleteErr } = await supabaseAdmin.from('hr_admins').delete().eq('id', u.id)
@@ -1774,12 +1750,10 @@ function UsersPage({ showToast, isSuperAdmin }) {
                         >
                           <div style={{
                             width:14, height:14, borderRadius:'50%', background:'white',
-                            position:'absolute', top:3,
-                            left: u.isAdmin ? 19 : 3,
-                            transition:'left 0.2s'
+                            position:'absolute', top:3, left: u.isAdmin ? 19 : 3, transition:'left 0.2s'
                           }}/>
                         </div>
-                        <span style={{fontSize:12, color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
+                        <span style={{fontSize:12,color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
                           {u.isAdmin ? 'Admin' : 'Viewer'}
                         </span>
                       </label>
@@ -1814,7 +1788,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [checking, setChecking] = useState(true)
   const [needsPassword, setNeedsPassword] = useState(false)
-  const [passwordMode, setPasswordMode] = useState('invite')  // 'invite' | 'recovery'
+  const [passwordMode, setPasswordMode] = useState('invite')
   const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
   const [viewerProfile, setViewerProfile] = useState(null) // { dept_id, can_view_all }
   const [page, setPage] = useState('staff')
@@ -1857,6 +1831,11 @@ export default function App() {
   }, [])
 
   const detectRole = async (userId) => {
+    // Reset state before detecting — prevents stale data showing briefly
+    setChecking(true)
+    setUserRole(null)
+    setViewerProfile(null)
+
     // Check super_admins first
     const { data: superRecord } = await supabase
       .from('super_admins').select('id').eq('user_id', userId).maybeSingle()
@@ -1882,6 +1861,7 @@ export default function App() {
       setChecking(false)
       return
     }
+    // Unknown user
     setUserRole('viewer')
     setChecking(false)
   }
