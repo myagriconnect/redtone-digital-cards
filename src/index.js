@@ -12,7 +12,7 @@ async function isOrgActive(orgId) {
   try {
     const data = await sbFetch(`subscriptions?org_id=eq.${orgId}&select=plan,status,trial_ends_at&limit=1`)
     const sub = data?.[0]
-    if (!sub) return true  // no sub record = assume active (legacy orgs)d
+    if (!sub) return true  // no sub record = assume active (legacy orgs)
     if (sub.status === 'suspended') return false
     if (sub.status === 'expired') return false
     if (sub.plan === 'trial' && sub.trial_ends_at) {
