@@ -8,6 +8,47 @@ async function sbFetch(path) {
   return res.json()
 }
 
+async function isOrgActive(orgId) {
+  try {
+    const data = await sbFetch(`subscriptions?org_id=eq.${orgId}&select=plan,status,trial_ends_at&limit=1`)
+    const sub = data?.[0]
+    if (!sub) return true  // no sub record = assume active (legacy orgs)
+    if (sub.status === 'suspended') return false
+    if (sub.status === 'expired') return false
+    if (sub.plan === 'trial' && sub.trial_ends_at) {
+      return new Date() <= new Date(sub.trial_ends_at)
+    }
+    return sub.status === 'active'
+  } catch { return true }
+}
+
+function buildExpiredHTML(orgName) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Card Unavailable</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" media="print" onload="this.media='all'"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#060b16;font-family:'Outfit',sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+    .box{background:#0d1520;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:48px 40px;max-width:400px;width:100%;text-align:center}
+    .icon{font-size:48px;margin-bottom:20px}
+    h1{color:#f0f2f7;font-size:20px;font-weight:700;margin-bottom:8px}
+    p{color:#8892a4;font-size:14px;line-height:1.6}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">🔒</div>
+    <h1>Card Unavailable</h1>
+    <p>This digital card is currently unavailable.<br/>Please contact <strong style="color:#f0f2f7">${orgName}</strong> for more information.</p>
+  </div>
+</body>
+</html>`
+}
+
 async function fetchOrg(slug) {
   const data = await sbFetch(
     `organizations?slug=eq.${encodeURIComponent(slug)}&select=id,name,slug,logo_url,primary_color,secondary_color,tagline&is_active=eq.true&limit=1`
@@ -202,7 +243,7 @@ export default {
     const path = url.pathname
 
     // Static prefixes
-    const staticPrefixes = ['/admin', '/assets', '/favicon']
+    const staticPrefixes = ['/admin', '/signup', '/assets', '/favicon']
     if (staticPrefixes.some(p => path.startsWith(p))) {
       return env.ASSETS.fetch(request)
     }
@@ -229,6 +270,15 @@ export default {
 
       const staff = await fetchStaffBySlug(cardSlug, org.id)
       if (!staff) return staticResponse
+
+      // Check subscription is active before serving the card
+      const active = await isOrgActive(org.id)
+      if (!active) {
+        return new Response(buildExpiredHTML(org.name), {
+          status: 403,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+        })
+      }
 
       const cardURL = `${url.protocol}//${url.host}/${orgSlug}/${cardSlug}/`
       return new Response(buildCardHTML(staff, org, cardURL), {
