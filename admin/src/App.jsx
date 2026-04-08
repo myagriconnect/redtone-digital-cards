@@ -739,11 +739,11 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast }) {
     try {
       let photo_url = staff?.photo_url || null
 
-      // Upload photo using service role key (bypasses storage policies)
+      // Upload photo using service role key (bypasses storage RLS — guaranteed to work)
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabase.storage
+        const { error: upErr } = await supabaseAdmin.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
         if (upErr) {
