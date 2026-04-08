@@ -1144,7 +1144,7 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
 
 /* ─── Staff List ─────────────────────────────────────────────────────── */
 function StaffPage({ showToast, userRole, viewerProfile }) {
-  const isHR = userRole === 'hr_admin'
+  const isHR = userRole === 'admin' || userRole === 'super_admin'
   const [staff, setStaff] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1405,7 +1405,7 @@ function Login({ onLogin }) {
 }
 
 /* ─── Users Page (HR only) ───────────────────────────────────────────── */
-function UsersPage({ showToast }) {
+function UsersPage({ showToast, isSuperAdmin }) {
   const [users, setUsers] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1421,7 +1421,6 @@ function UsersPage({ showToast }) {
       supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name'),
       supabase.from('hr_admins_with_email').select('*').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
     ])
-    // Merge viewers + admins into one list, tagging each with isAdmin
     const viewers = (u.data || []).map(x => ({ ...x, isAdmin: false }))
     const admins  = (a.data || []).map(x => ({ ...x, isAdmin: true }))
     setUsers([...admins, ...viewers])
@@ -1476,9 +1475,9 @@ function UsersPage({ showToast }) {
   }
 
   const removeUser = async (u) => {
-    const table = u.isAdmin ? 'hr_admins' : 'org_users'
     const label = u.isAdmin ? 'admin access' : 'viewer access'
     if (!confirm(`Remove ${label} for ${u.email}?`)) return
+    const table = u.isAdmin ? 'hr_admins' : 'org_users'
     const { error } = await supabaseAdmin.from(table).delete().eq('id', u.id)
     if (error) { showToast('Remove failed', 'error'); return }
     showToast('Access removed', 'success')
@@ -1487,41 +1486,32 @@ function UsersPage({ showToast }) {
 
   const toggleAdminRole = async (u) => {
     if (u.isAdmin) {
-      // Demote: hr_admins → org_users
+      // Demote: hr_admins → org_users (Super Admin only)
       if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
-          org_id: ORG_ID,
-          user_id: u.user_id,
-          role: 'viewer',
-          dept_id: null,
-          can_view_all: true,
+          org_id: ORG_ID, user_id: u.user_id, role: 'viewer',
+          dept_id: null, can_view_all: true,
         })
         if (insertErr) throw insertErr
         const { error: deleteErr } = await supabaseAdmin.from('hr_admins').delete().eq('id', u.id)
         if (deleteErr) throw deleteErr
         showToast(`${u.email} demoted to Viewer`, 'success')
         load()
-      } catch (e) {
-        showToast(e.message || 'Demote failed', 'error')
-      }
+      } catch (e) { showToast(e.message || 'Demote failed', 'error') }
     } else {
-      // Promote: org_users → hr_admins
-      if (!confirm(`Promote ${u.email} to HR Admin? They will get full edit access.`)) return
+      // Promote: org_users → hr_admins (Super Admin only)
+      if (!confirm(`Promote ${u.email} to Admin? They will get full edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('hr_admins').insert({
-          org_id: ORG_ID,
-          user_id: u.user_id,
-          role: 'hr_admin',
+          org_id: ORG_ID, user_id: u.user_id, role: 'hr_admin',
         })
         if (insertErr) throw insertErr
         const { error: deleteErr } = await supabaseAdmin.from('org_users').delete().eq('id', u.id)
         if (deleteErr) throw deleteErr
-        showToast(`${u.email} promoted to HR Admin`, 'success')
+        showToast(`${u.email} promoted to Admin`, 'success')
         load()
-      } catch (e) {
-        showToast(e.message || 'Promote failed', 'error')
-      }
+      } catch (e) { showToast(e.message || 'Promote failed', 'error') }
     }
   }
 
@@ -1529,8 +1519,8 @@ function UsersPage({ showToast }) {
     <>
       <div className="page-header">
         <div>
-          <div className="page-title">Viewer Access</div>
-          <div className="page-sub">Manage viewers and HR admins</div>
+          <div className="page-title">User Access</div>
+          <div className="page-sub">Manage viewers and admins</div>
         </div>
       </div>
 
@@ -1588,7 +1578,7 @@ function UsersPage({ showToast }) {
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>User</th>
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Department</th>
                 <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Access Level</th>
-                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Admin</th>
+                {isSuperAdmin && <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Admin</th>}
                 <th style={{textAlign:'right',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Actions</th>
               </tr>
             </thead>
@@ -1597,7 +1587,7 @@ function UsersPage({ showToast }) {
                 <tr key={u.id} style={{borderBottom: i < users.length-1 ? '1px solid var(--border)' : 'none'}}>
                   <td style={{padding:'14px 20px'}}>
                     <div style={{fontSize:13,fontWeight:500}}>{u.email || u.user_id}</div>
-                    <div style={{fontSize:11,color: u.isAdmin ? 'var(--red)' : 'var(--muted)',marginTop:2}}>{u.isAdmin ? 'HR Admin' : 'Viewer'}</div>
+                    <div style={{fontSize:11,color: u.isAdmin ? 'var(--red)' : 'var(--muted)',marginTop:2}}>{u.isAdmin ? 'Admin' : 'Viewer'}</div>
                   </td>
                   <td style={{padding:'14px 20px'}}>
                     {u.isAdmin ? (
@@ -1641,30 +1631,31 @@ function UsersPage({ showToast }) {
                       </label>
                     )}
                   </td>
-                  <td style={{padding:'14px 20px'}}>
-                    {/* Admin toggle — two-way promote/demote */}
-                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
-                      <div
-                        onClick={() => toggleAdminRole(u)}
-                        title={u.isAdmin ? 'Demote to Viewer' : 'Promote to HR Admin'}
-                        style={{
-                          width:36, height:20, borderRadius:10,
-                          background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
-                          position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
-                        }}
-                      >
-                        <div style={{
-                          width:14, height:14, borderRadius:'50%', background:'white',
-                          position:'absolute', top:3,
-                          left: u.isAdmin ? 19 : 3,
-                          transition:'left 0.2s'
-                        }}/>
-                      </div>
-                      <span style={{fontSize:12, color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
-                        {u.isAdmin ? 'Admin' : 'Viewer'}
-                      </span>
-                    </label>
-                  </td>
+                  {isSuperAdmin && (
+                    <td style={{padding:'14px 20px'}}>
+                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
+                        <div
+                          onClick={() => toggleAdminRole(u)}
+                          title={u.isAdmin ? 'Demote to Viewer' : 'Promote to Admin'}
+                          style={{
+                            width:36, height:20, borderRadius:10,
+                            background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
+                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
+                          }}
+                        >
+                          <div style={{
+                            width:14, height:14, borderRadius:'50%', background:'white',
+                            position:'absolute', top:3,
+                            left: u.isAdmin ? 19 : 3,
+                            transition:'left 0.2s'
+                          }}/>
+                        </div>
+                        <span style={{fontSize:12, color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
+                          {u.isAdmin ? 'Admin' : 'Viewer'}
+                        </span>
+                      </label>
+                    </td>
+                  )}
                   <td style={{padding:'14px 20px',textAlign:'right'}}>
                     <button
                       onClick={() => removeUser(u)}
@@ -1693,7 +1684,7 @@ function UsersPage({ showToast }) {
 export default function App() {
   const [session, setSession] = useState(null)
   const [checking, setChecking] = useState(true)
-  const [userRole, setUserRole] = useState(null)      // 'hr_admin' | 'viewer'
+  const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
   const [viewerProfile, setViewerProfile] = useState(null) // { dept_id, can_view_all }
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
@@ -1716,11 +1707,19 @@ export default function App() {
   }, [])
 
   const detectRole = async (userId) => {
-    // Check hr_admins first
-    const { data: hrRecord } = await supabase
+    // Check super_admins first
+    const { data: superRecord } = await supabase
+      .from('super_admins').select('id').eq('user_id', userId).maybeSingle()
+    if (superRecord) {
+      setUserRole('super_admin')
+      setChecking(false)
+      return
+    }
+    // Check hr_admins (admin)
+    const { data: adminRecord } = await supabase
       .from('hr_admins').select('id').eq('user_id', userId).maybeSingle()
-    if (hrRecord) {
-      setUserRole('hr_admin')
+    if (adminRecord) {
+      setUserRole('admin')
       setChecking(false)
       return
     }
@@ -1751,8 +1750,10 @@ export default function App() {
     </>
   )
 
-  const roleBadgeColor = userRole === 'hr_admin' ? 'var(--red)' : 'var(--gold)'
-  const roleLabel = userRole === 'hr_admin' ? 'HR Admin' : 'Viewer'
+  const isSuperAdmin = userRole === 'super_admin'
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin'
+  const roleBadgeColor = isSuperAdmin ? 'var(--gold)' : isAdmin ? 'var(--red)' : 'var(--muted)'
+  const roleLabel = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Viewer'
 
   return (
     <>
@@ -1768,9 +1769,9 @@ export default function App() {
           <div className={`nav-item ${page==='dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
             {Icon.dashboard} Dashboard
           </div>
-          {userRole === 'hr_admin' && (
+          {isAdmin && (
             <div className={`nav-item ${page==='users' ? 'active' : ''}`} onClick={() => setPage('users')}>
-              {Icon.shieldUser} Viewer Access
+              {Icon.shieldUser} User Access
             </div>
           )}
           <div className="sidebar-bottom">
@@ -1778,9 +1779,9 @@ export default function App() {
               <span style={{
                 display:'inline-block', padding:'2px 8px', borderRadius:6,
                 fontSize:10, fontWeight:600, letterSpacing:'1px', textTransform:'uppercase',
-                background: userRole === 'hr_admin' ? 'rgba(232,0,29,0.12)' : 'rgba(201,151,58,0.12)',
+                background: isSuperAdmin ? 'rgba(201,151,58,0.12)' : isAdmin ? 'rgba(232,0,29,0.12)' : 'rgba(255,255,255,0.06)',
                 color: roleBadgeColor,
-                border: `1px solid ${userRole === 'hr_admin' ? 'rgba(232,0,29,0.25)' : 'rgba(201,151,58,0.25)'}`,
+                border: `1px solid ${isSuperAdmin ? 'rgba(201,151,58,0.25)' : isAdmin ? 'rgba(232,0,29,0.25)' : 'rgba(255,255,255,0.12)'}`,
               }}>{roleLabel}</span>
             </div>
             <div className="user-badge">
@@ -1795,7 +1796,7 @@ export default function App() {
 
         {/* Main */}
         <main className="main">
-          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} viewerProfile={viewerProfile}/>}
+          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} viewerProfile={viewerProfile}/>}
           {page === 'dashboard' && (
             <div>
               <div className="page-title" style={{marginBottom:8}}>Dashboard</div>
@@ -1806,7 +1807,7 @@ export default function App() {
               </div>
             </div>
           )}
-          {page === 'users' && userRole === 'hr_admin' && <UsersPage showToast={showToast}/>}
+          {page === 'users' && isAdmin && <UsersPage showToast={showToast} isSuperAdmin={isSuperAdmin}/>}
         </main>
       </div>
 
