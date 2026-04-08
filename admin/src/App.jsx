@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, supabaseAdmin } from './supabase'
-const ORG_ID = 'a1b2c3d4-0001-0001-0001-000000000001'
-/*const ORG_ID = 'a1000000-0000-0000-0000-000000000001'*/
+// ORG_ID is now resolved dynamically from the logged-in user's record
 
 /* ─── Styles ──────────────────────────────────────────────────────────── */
 const css = `
@@ -1143,7 +1142,8 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
 }
 
 /* ─── Staff List ─────────────────────────────────────────────────────── */
-function StaffPage({ showToast, userRole, viewerProfile }) {
+function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile }) {
+  const ORG_ID = orgId
   const isHR = userRole === 'admin' || userRole === 'super_admin'
   const [staff, setStaff] = useState([])
   const [departments, setDepartments] = useState([])
@@ -1369,151 +1369,11 @@ function StaffPage({ showToast, userRole, viewerProfile }) {
   )
 }
 
-/* ─── Set Password (invite + reset flow) ────────────────────────────── */
-function SetPassword({ onDone, mode }) {
-  const [pass, setPass] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
-  const handleSet = async (e) => {
-    e.preventDefault()
-    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
-    if (pass !== confirm) { setError('Passwords do not match'); return }
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.updateUser({ password: pass })
-    if (error) { setError(error.message); setLoading(false) }
-    else onDone()
-  }
-
-  const isInvite = mode === 'invite'
-
-  return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
-        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
-          {isInvite
-            ? 'Welcome! Please set a password to complete your account setup.'
-            : 'Enter a new password for your account.'}
-        </div>
-        {error && <div className="error-msg">{error}</div>}
-        <form onSubmit={handleSet}>
-          <label className="login-label">New Password</label>
-          <input className="login-input" type="password" value={pass}
-            onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters" autoFocus/>
-          <label className="login-label">Confirm Password</label>
-          <input className="login-input" type="password" value={confirm}
-            onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
-          <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? 'Saving...' : (isInvite ? 'Set Password & Continue' : 'Reset Password & Continue')}
-          </button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-/* ─── Login ──────────────────────────────────────────────────────────── */
-function Login({ onLogin }) {
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [view, setView] = useState('login')
-
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
-    if (error) { setError(error.message); setLoading(false) }
-    else onLogin()
-  }
-
-  const handleForgot = async (e) => {
-    e.preventDefault()
-    if (!email.trim()) { setError('Please enter your email address'); return }
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin + window.location.pathname,
-    })
-    if (error) { setError(error.message); setLoading(false) }
-    else { setView('forgot_sent'); setLoading(false) }
-  }
-
-  if (view === 'forgot_sent') return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Check Your Email</div>
-        <div style={{textAlign:'center',marginBottom:24}}>
-          <div style={{fontSize:40,marginBottom:16}}>📬</div>
-          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>We sent a password reset link to</div>
-          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>{email}</div>
-          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>Check your inbox and click the link to reset your password. The link expires in 1 hour.</div>
-        </div>
-        <button className="login-btn" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
-          onClick={() => { setView('login'); setError('') }}>
-          Back to Sign In
-        </button>
-      </div>
-    </div>
-  )
-
-  if (view === 'forgot') return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Reset Password</div>
-        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
-          Enter your email and we'll send you a reset link.
-        </div>
-        {error && <div className="error-msg">{error}</div>}
-        <form onSubmit={handleForgot}>
-          <label className="login-label">Email</label>
-          <input className="login-input" type="email" value={email}
-            onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
-          <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? 'Sending...' : 'Send Reset Link'}
-          </button>
-        </form>
-        <button onClick={() => { setView('login'); setError('') }}
-          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px'}}>
-          ← Back to Sign In
-        </button>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">HR Portal · Digital Cards</div>
-        {error && <div className="error-msg">{error}</div>}
-        <form onSubmit={handleLogin}>
-          <label className="login-label">Email</label>
-          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
-          <label className="login-label">Password</label>
-          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••"/>
-          <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-        <button onClick={() => { setView('forgot'); setError('') }}
-          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px',transition:'color 0.15s'}}
-          onMouseEnter={e => e.currentTarget.style.color='var(--text)'}
-          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}>
-          Forgot password?
-        </button>
-      </div>
-    </div>
-  )
-}
 
 /* ─── Users Page (HR only) ───────────────────────────────────────────── */
-function UsersPage({ showToast, isSuperAdmin }) {
+function UsersPage({ showToast, isSuperAdmin, orgId }) {
+  const ORG_ID = orgId
   const [users, setUsers] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1548,7 +1408,7 @@ function UsersPage({ showToast, isSuperAdmin }) {
       const newUserId = inviteData.user.id
       // 2. Insert into org_users
       const { error: insertErr } = await supabase.from('org_users').insert({
-        org_id: ORG_ID,
+        org_id: orgId,
         user_id: newUserId,
         role: 'viewer',
         dept_id: inviteAll ? null : (inviteDeptId || null),
@@ -1597,7 +1457,7 @@ function UsersPage({ showToast, isSuperAdmin }) {
       if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
-          org_id: ORG_ID, user_id: u.user_id, role: 'viewer', dept_id: null, can_view_all: true,
+          org_id: orgId, user_id: u.user_id, role: 'viewer', dept_id: null, can_view_all: true,
         })
         if (insertErr) throw insertErr
         const { error: deleteErr } = await supabaseAdmin.from('hr_admins').delete().eq('id', u.id)
@@ -1609,7 +1469,7 @@ function UsersPage({ showToast, isSuperAdmin }) {
       if (!confirm(`Promote ${u.email} to Admin? They will get full edit access.`)) return
       try {
         const { error: insertErr } = await supabaseAdmin.from('hr_admins').insert({
-          org_id: ORG_ID, user_id: u.user_id, role: 'hr_admin',
+          org_id: orgId, user_id: u.user_id, role: 'hr_admin',
         })
         if (insertErr) throw insertErr
         const { error: deleteErr } = await supabaseAdmin.from('org_users').delete().eq('id', u.id)
@@ -1759,6 +1619,29 @@ function UsersPage({ showToast, isSuperAdmin }) {
                       </label>
                     </td>
                   )}
+                  {isSuperAdmin && (
+                    <td style={{padding:'14px 20px'}}>
+                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
+                        <div
+                          onClick={() => toggleAdminRole(u)}
+                          title={u.isAdmin ? 'Demote to Viewer' : 'Promote to Admin'}
+                          style={{
+                            width:36, height:20, borderRadius:10,
+                            background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
+                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
+                          }}
+                        >
+                          <div style={{
+                            width:14, height:14, borderRadius:'50%', background:'white',
+                            position:'absolute', top:3, left: u.isAdmin ? 19 : 3, transition:'left 0.2s'
+                          }}/>
+                        </div>
+                        <span style={{fontSize:12,color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
+                          {u.isAdmin ? 'Admin' : 'Viewer'}
+                        </span>
+                      </label>
+                    </td>
+                  )}
                   <td style={{padding:'14px 20px',textAlign:'right'}}>
                     <button
                       onClick={() => removeUser(u)}
@@ -1783,6 +1666,537 @@ function UsersPage({ showToast, isSuperAdmin }) {
   )
 }
 
+
+/* ─── Set Password (invite + reset flow) ────────────────────────────── */
+function SetPassword({ onDone, mode }) {
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const handleSet = async (e) => {
+    e.preventDefault()
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (pass !== confirm) { setError('Passwords do not match'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.updateUser({ password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+    else onDone()
+  }
+  const isInvite = mode === 'invite'
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
+          {isInvite ? 'Welcome! Please set a password to complete your account setup.' : 'Enter a new password for your account.'}
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSet}>
+          <label className="login-label">New Password</label>
+          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters" autoFocus/>
+          <label className="login-label">Confirm Password</label>
+          <input className="login-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Saving...' : (isInvite ? 'Set Password & Continue' : 'Reset Password & Continue')}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Set Password (invite + reset flow) ────────────────────────────── */
+function SetPassword({ onDone, mode }) {
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSet = async (e) => {
+    e.preventDefault()
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    if (pass !== confirm) { setError('Passwords do not match'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.updateUser({ password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+    else onDone()
+  }
+
+  const isInvite = mode === 'invite'
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
+          {isInvite ? 'Welcome! Please set a password to complete your account setup.' : 'Enter a new password for your account.'}
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSet}>
+          <label className="login-label">New Password</label>
+          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters" autoFocus/>
+          <label className="login-label">Confirm Password</label>
+          <input className="login-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Saving...' : (isInvite ? 'Set Password & Continue' : 'Reset Password & Continue')}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ─── OrgPage ────────────────────────────────────────────────────────── */
+function OrgPage({ org, setOrg, orgId }) {
+  const ORG_ID = orgId
+  const [form, setForm] = useState({
+    name: '', industry: '', website: '', phone: '',
+    address: '', tagline: '', primary_color: '#E8001D', secondary_color: '#C9973A', logo_url: ''
+  })
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (org) {
+      setForm({
+        name: org.name || '',
+        industry: org.industry || '',
+        website: org.website || '',
+        phone: org.phone || '',
+        address: org.address || '',
+        tagline: org.tagline || '',
+        primary_color: org.primary_color || '#E8001D',
+        secondary_color: org.secondary_color || '#C9973A',
+        logo_url: org.logo_url || ''
+      })
+      setLogoPreview(org.logo_url || null)
+    }
+  }, [org])
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
+  const handleSave = async () => {
+    setSaving(true); setError(''); setSaved(false)
+    try {
+      let logo_url = form.logo_url
+      if (logoFile) {
+        const ext = logoFile.name.split('.').pop()
+        const path = `org-logos/${ORG_ID}/logo.${ext}`
+        const { error: uploadErr } = await supabaseAdmin.storage
+          .from('staff-photos')
+          .upload(path, logoFile, { upsert: true, contentType: logoFile.type })
+        if (uploadErr) throw uploadErr
+        const { data: urlData } = supabaseAdmin.storage.from('staff-photos').getPublicUrl(path)
+        logo_url = urlData.publicUrl + '?t=' + Date.now()
+      }
+      const payload = {
+        name: form.name, industry: form.industry, website: form.website,
+        phone: form.phone, address: form.address, tagline: form.tagline,
+        primary_color: form.primary_color, secondary_color: form.secondary_color, logo_url
+      }
+      const { error: updateErr } = await supabaseAdmin.from('organizations').update(payload).eq('id', ORG_ID)
+      if (updateErr) throw updateErr
+      setOrg(prev => ({ ...prev, ...payload }))
+      setForm(f => ({ ...f, logo_url }))
+      setLogoPreview(logo_url)
+      setLogoFile(null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setError(e.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = { width:'100%', background:'rgba(255,255,255,0.04)', border:'1px solid var(--border)', borderRadius:10, padding:'11px 14px', color:'var(--text)', fontFamily:"'Outfit',sans-serif", fontSize:14, outline:'none', transition:'border-color 0.2s', boxSizing:'border-box' }
+  const lbl = { fontSize:11, fontWeight:600, letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--muted)', marginBottom:8, display:'block' }
+  const section = { background:'var(--card)', border:'1px solid var(--border)', borderRadius:14, padding:28, marginBottom:24 }
+  const sectionTitle = { fontSize:12, letterSpacing:'1.5px', textTransform:'uppercase', color:'var(--muted)', marginBottom:20, fontWeight:600 }
+
+  return (
+    <div style={{maxWidth:780}}>
+      <div className="page-header">
+        <div>
+          <div className="page-title">Setup</div>
+          <div className="page-sub">Customize your organization branding, colors, and contact info</div>
+        </div>
+      </div>
+
+      {/* Logo */}
+      <div style={section}>
+        <div style={sectionTitle}>Company Logo</div>
+        <div style={{display:'flex',alignItems:'center',gap:24}}>
+          <div style={{
+            width:140, height:80, background:'rgba(255,255,255,0.03)', borderRadius:10,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            border:'2px dashed var(--border)', overflow:'hidden', flexShrink:0
+          }}>
+            {logoPreview
+              ? <img src={logoPreview} alt="logo" style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',padding:8}}/>
+              : <span style={{color:'var(--muted)',fontSize:12}}>No logo</span>
+            }
+          </div>
+          <div>
+            <label style={{
+              display:'inline-block', padding:'9px 20px', background:'rgba(255,255,255,0.04)',
+              border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:13, color:'var(--text)', marginBottom:8
+            }}>
+              {logoFile ? logoFile.name : 'Choose Logo File'}
+              <input type="file" accept="image/*" onChange={handleLogoChange} style={{display:'none'}}/>
+            </label>
+            <p style={{color:'var(--muted)',fontSize:12,margin:0}}>PNG or SVG · Max 2MB · Transparent background preferred</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Company Info */}
+      <div style={section}>
+        <div style={sectionTitle}>Company Information</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 24px'}}>
+          {[
+            ['name','Company Name *','e.g. REDtone IoT Sdn Bhd'],
+            ['industry','Industry','e.g. Telecommunications'],
+            ['tagline','Tagline','e.g. Connecting the Future'],
+            ['website','Website','https://www.example.com'],
+            ['phone','Phone','+60 3-XXXX XXXX'],
+            ['address','Address','Kuala Lumpur, Malaysia'],
+          ].map(([key, label, placeholder]) => (
+            <div key={key} style={{marginBottom:20}}>
+              <label style={lbl}>{label}</label>
+              <input
+                style={inp}
+                value={form[key]}
+                onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                placeholder={placeholder}
+                onFocus={e => e.target.style.borderColor='var(--red)'}
+                onBlur={e => e.target.style.borderColor='var(--border)'}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Brand Colors */}
+      <div style={section}>
+        <div style={sectionTitle}>Brand Colors</div>
+        <p style={{color:'var(--muted)',fontSize:12,marginBottom:20}}>These colors appear as accents on staff digital cards</p>
+        <div style={{display:'flex',gap:40,alignItems:'flex-end',flexWrap:'wrap'}}>
+          {[['primary_color','Primary Color'],['secondary_color','Secondary Color']].map(([key,label]) => (
+            <div key={key}>
+              <label style={lbl}>{label}</label>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <input type="color" value={form[key]}
+                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                  style={{width:44,height:40,borderRadius:8,border:'none',cursor:'pointer',background:'none'}}/>
+                <input style={{...inp,width:110}} value={form[key]}
+                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                  onFocus={e => e.target.style.borderColor='var(--red)'}
+                  onBlur={e => e.target.style.borderColor='var(--border)'}/>
+              </div>
+            </div>
+          ))}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:form.primary_color,boxShadow:`0 0 12px ${form.primary_color}66`}}/>
+            <div style={{width:32,height:32,borderRadius:'50%',background:form.secondary_color,boxShadow:`0 0 12px ${form.secondary_color}66`}}/>
+            <span style={{color:'var(--muted)',fontSize:12}}>Preview</span>
+          </div>
+        </div>
+      </div>
+
+      {error && <div style={{background:'rgba(232,0,29,0.1)',border:'1px solid rgba(232,0,29,0.3)',borderRadius:8,padding:'12px 16px',color:'#ff6b6b',fontSize:13,marginBottom:16}}>{error}</div>}
+      {saved && <div style={{background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'12px 16px',color:'var(--green)',fontSize:13,marginBottom:16}}>✓ Organization settings saved successfully</div>}
+
+      <button onClick={handleSave} disabled={saving} className="btn-primary" style={{padding:'12px 32px',fontSize:14,letterSpacing:1}}>
+        {saving ? 'Saving...' : 'Save Settings'}
+      </button>
+    </div>
+  )
+}
+
+/* ─── Login ──────────────────────────────────────────────────────────── */
+function Login({ onLogin }) {
+  const [email, setEmail] = useState('')
+  const [pass, setPass] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [view, setView] = useState('login')
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+    else onLogin()
+  }
+
+  const handleForgot = async (e) => {
+    e.preventDefault()
+    if (!email.trim()) { setError('Please enter your email address'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + window.location.pathname,
+    })
+    if (error) { setError(error.message); setLoading(false) }
+    else { setView('forgot_sent'); setLoading(false) }
+  }
+
+  if (view === 'forgot_sent') return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">Check Your Email</div>
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{fontSize:40,marginBottom:16}}>📬</div>
+          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>We sent a password reset link to</div>
+          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>{email}</div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>Check your inbox and click the link. The link expires in 1 hour.</div>
+        </div>
+        <button className="login-btn" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
+          onClick={() => { setView('login'); setError('') }}>Back to Sign In</button>
+      </div>
+    </div>
+  )
+
+  if (view === 'forgot') return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">Reset Password</div>
+        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
+          Enter your email and we'll send you a reset link.
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleForgot}>
+          <label className="login-label">Email</label>
+          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
+          <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
+        </form>
+        <button onClick={() => { setView('login'); setError('') }}
+          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px'}}>
+          ← Back to Sign In
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-subtitle">Digital Cards Portal</div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleLogin}>
+          <label className="login-label">Email</label>
+          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
+          <label className="login-label">Password</label>
+          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••"/>
+          <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
+        </form>
+        <button onClick={() => { setView('forgot'); setError('') }}
+          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px',transition:'color 0.15s'}}
+          onMouseEnter={e => e.currentTarget.style.color='var(--text)'}
+          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}>
+          Forgot password?
+        </button>
+      </div>
+    </div>
+  )
+}
+/* ─── OrgPage (Setup) ────────────────────────────────────────────────── */
+function OrgPage({ org, setOrg, orgId, showToast }) {
+  const [form, setForm] = useState({
+    name: '', industry: '', website: '', phone: '', address: '',
+    tagline: '', primary_color: '#E8001D', secondary_color: '#C9973A', logo_url: ''
+  })
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (org) {
+      setForm({
+        name: org.name || '',
+        industry: org.industry || '',
+        website: org.website || '',
+        phone: org.phone || '',
+        address: org.address || '',
+        tagline: org.tagline || '',
+        primary_color: org.primary_color || '#E8001D',
+        secondary_color: org.secondary_color || '#C9973A',
+        logo_url: org.logo_url || '',
+      })
+      setLogoPreview(org.logo_url || null)
+    }
+  }, [org])
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
+  const handleSave = async () => {
+    if (!orgId) { showToast('No org ID — please reload', 'error'); return }
+    setSaving(true)
+    try {
+      let logo_url = form.logo_url
+      if (logoFile) {
+        const ext = logoFile.name.split('.').pop()
+        const path = `org-logos/${orgId}/logo.${ext}`
+        const { error: uploadErr } = await supabaseAdmin.storage
+          .from('staff-photos')
+          .upload(path, logoFile, { upsert: true, contentType: logoFile.type })
+        if (uploadErr) throw uploadErr
+        const { data: urlData } = supabaseAdmin.storage.from('staff-photos').getPublicUrl(path)
+        logo_url = urlData.publicUrl + '?t=' + Date.now()
+      }
+      const payload = {
+        name: form.name, industry: form.industry, website: form.website,
+        phone: form.phone, address: form.address, tagline: form.tagline,
+        primary_color: form.primary_color, secondary_color: form.secondary_color,
+        logo_url,
+      }
+      const { error: updateErr } = await supabaseAdmin.from('organizations').update(payload).eq('id', orgId)
+      if (updateErr) throw updateErr
+      setOrg(prev => ({ ...prev, ...payload }))
+      setForm(f => ({ ...f, logo_url }))
+      setLogoPreview(logo_url)
+      setLogoFile(null)
+      showToast('Organization settings saved!', 'success')
+    } catch (e) {
+      showToast(e.message || 'Save failed', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = {
+    width:'100%', background:'rgba(255,255,255,0.04)', border:'1px solid var(--border)',
+    borderRadius:10, padding:'11px 14px', color:'var(--text)',
+    fontFamily:"'Outfit',sans-serif", fontSize:14, outline:'none',
+    transition:'border-color 0.2s', boxSizing:'border-box'
+  }
+  const lbl = {
+    display:'block', fontSize:11, fontWeight:600, letterSpacing:'1.5px',
+    textTransform:'uppercase', color:'var(--muted)', marginBottom:8
+  }
+  const section = {
+    background:'var(--card)', border:'1px solid var(--border)',
+    borderRadius:14, padding:28, marginBottom:24
+  }
+  const sectionTitle = {
+    fontSize:13, letterSpacing:'1px', textTransform:'uppercase',
+    color:'var(--muted)', marginBottom:20, fontWeight:600
+  }
+
+  return (
+    <div style={{maxWidth:760}}>
+      <div className="page-header">
+        <div>
+          <div className="page-title">Setup</div>
+          <div className="page-sub">Customize your organization branding and contact info</div>
+        </div>
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? <><div className="spinner"/></> : 'Save Changes'}
+        </button>
+      </div>
+
+      {/* Logo */}
+      <div style={section}>
+        <div style={sectionTitle}>Company Logo</div>
+        <div style={{display:'flex',alignItems:'center',gap:24}}>
+          <div style={{
+            width:140, height:80, background:'rgba(255,255,255,0.03)',
+            borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+            border:'2px dashed var(--border)', overflow:'hidden', flexShrink:0
+          }}>
+            {logoPreview
+              ? <img src={logoPreview} alt="logo" style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',padding:8}}/>
+              : <span style={{color:'var(--muted)',fontSize:12}}>No logo</span>
+            }
+          </div>
+          <div>
+            <label style={{
+              display:'inline-block', padding:'9px 20px', background:'rgba(255,255,255,0.04)',
+              border:'1px solid var(--border)', borderRadius:8, cursor:'pointer',
+              fontSize:13, color:'var(--text)', marginBottom:8, transition:'all 0.15s'
+            }}>
+              {logoFile ? logoFile.name : 'Choose Logo File'}
+              <input type="file" accept="image/*" onChange={handleLogoChange} style={{display:'none'}}/>
+            </label>
+            <div style={{color:'var(--muted)',fontSize:12}}>PNG or SVG recommended · Max 2MB · Transparent background preferred</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Company Info */}
+      <div style={section}>
+        <div style={sectionTitle}>Company Information</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 24px'}}>
+          {[
+            ['name','Company Name *','e.g. REDtone IoT Sdn Bhd'],
+            ['industry','Industry','e.g. Telecommunications'],
+            ['tagline','Tagline','e.g. Connecting the Future'],
+            ['website','Website','https://www.example.com'],
+            ['phone','Phone','+60 3-XXXX XXXX'],
+            ['address','Address','Kuala Lumpur, Malaysia'],
+          ].map(([key, label, placeholder]) => (
+            <div key={key} style={{marginBottom:20}}>
+              <label style={lbl}>{label}</label>
+              <input
+                style={inp}
+                value={form[key]}
+                onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                placeholder={placeholder}
+                onFocus={e => e.target.style.borderColor='var(--red)'}
+                onBlur={e => e.target.style.borderColor='var(--border)'}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Brand Colors */}
+      <div style={section}>
+        <div style={sectionTitle}>Brand Colors</div>
+        <div style={{fontSize:12,color:'var(--muted)',marginBottom:20}}>These colors appear on staff digital cards (accents, icons, highlights)</div>
+        <div style={{display:'flex',gap:40,alignItems:'flex-end',flexWrap:'wrap'}}>
+          {[['primary_color','Primary Color'],['secondary_color','Secondary Color']].map(([key, label]) => (
+            <div key={key}>
+              <label style={lbl}>{label}</label>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <input type="color" value={form[key]}
+                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                  style={{width:44,height:40,borderRadius:8,border:'none',cursor:'pointer',background:'none'}}/>
+                <input style={{...inp, width:110}} value={form[key]}
+                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
+                  onFocus={e => e.target.style.borderColor='var(--red)'}
+                  onBlur={e => e.target.style.borderColor='var(--border)'}/>
+              </div>
+            </div>
+          ))}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:form.primary_color,boxShadow:`0 0 10px ${form.primary_color}66`}}/>
+            <div style={{width:32,height:32,borderRadius:'50%',background:form.secondary_color,boxShadow:`0 0 10px ${form.secondary_color}66`}}/>
+            <span style={{fontSize:12,color:'var(--muted)'}}>Preview</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── App ────────────────────────────────────────────────────────────── */
 export default function App() {
   const [session, setSession] = useState(null)
@@ -1790,7 +2204,9 @@ export default function App() {
   const [needsPassword, setNeedsPassword] = useState(false)
   const [passwordMode, setPasswordMode] = useState('invite')
   const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
-  const [viewerProfile, setViewerProfile] = useState(null) // { dept_id, can_view_all }
+  const [orgId, setOrgId] = useState(null)
+  const [org, setOrg] = useState(null)
+  const [viewerProfile, setViewerProfile] = useState(null)
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
 
@@ -1825,43 +2241,53 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
       setSession(s)
       if (s) detectRole(s.user.id)
-      else { setUserRole(null); setViewerProfile(null); setChecking(false) }
+      else { setUserRole(null); setViewerProfile(null); setOrgId(null); setOrg(null); setChecking(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
 
+  const fetchOrg = async (id) => {
+    const { data } = await supabase.from('organizations').select('*').eq('id', id).single()
+    if (data) setOrg(data)
+  }
+
   const detectRole = async (userId) => {
-    // Reset state before detecting — prevents stale data showing briefly
     setChecking(true)
     setUserRole(null)
     setViewerProfile(null)
+    setOrgId(null)
 
     // Check super_admins first
     const { data: superRecord } = await supabase
-      .from('super_admins').select('id').eq('user_id', userId).maybeSingle()
+      .from('super_admins').select('id, org_id').eq('user_id', userId).maybeSingle()
     if (superRecord) {
       setUserRole('super_admin')
+      setOrgId(superRecord.org_id)
+      await fetchOrg(superRecord.org_id)
       setChecking(false)
       return
     }
     // Check hr_admins (admin)
     const { data: adminRecord } = await supabase
-      .from('hr_admins').select('id').eq('user_id', userId).maybeSingle()
+      .from('hr_admins').select('id, org_id').eq('user_id', userId).maybeSingle()
     if (adminRecord) {
       setUserRole('admin')
+      setOrgId(adminRecord.org_id)
+      await fetchOrg(adminRecord.org_id)
       setChecking(false)
       return
     }
     // Check org_users (viewer)
     const { data: viewerRecord } = await supabase
-      .from('org_users').select('dept_id, can_view_all').eq('user_id', userId).maybeSingle()
+      .from('org_users').select('dept_id, can_view_all, org_id').eq('user_id', userId).maybeSingle()
     if (viewerRecord) {
       setUserRole('viewer')
+      setOrgId(viewerRecord.org_id)
+      await fetchOrg(viewerRecord.org_id)
       setViewerProfile({ dept_id: viewerRecord.dept_id, can_view_all: viewerRecord.can_view_all })
       setChecking(false)
       return
     }
-    // Unknown user
     setUserRole('viewer')
     setChecking(false)
   }
@@ -1889,8 +2315,19 @@ export default function App() {
     </>
   )
 
+  if (needsPassword) return (
+    <>
+      <style>{css}</style>
+      <SetPassword mode={passwordMode} onDone={() => {
+        setNeedsPassword(false)
+        detectRole(session.user.id)
+      }}/>
+    </>
+  )
+
   const isSuperAdmin = userRole === 'super_admin'
   const isAdmin = userRole === 'admin' || userRole === 'super_admin'
+  const ORG_ID = orgId  // dynamic — resolved from logged-in user
   const roleBadgeColor = isSuperAdmin ? 'var(--gold)' : isAdmin ? 'var(--red)' : 'var(--muted)'
   const roleLabel = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Viewer'
 
@@ -1900,7 +2337,12 @@ export default function App() {
       <div className="layout">
         {/* Sidebar */}
         <aside className="sidebar">
-          <div className="sidebar-logo"><span>RED</span>tone</div>
+          <div className="sidebar-logo">
+            {org?.logo_url
+              ? <img src={org.logo_url} alt={org.name} style={{maxWidth:140,maxHeight:36,objectFit:'contain',display:'block'}}/>
+              : <><span>RED</span>tone</>
+            }
+          </div>
           <div className="sidebar-label">Management</div>
           <div className={`nav-item ${page==='staff' ? 'active' : ''}`} onClick={() => setPage('staff')}>
             {Icon.users} Staff
@@ -1911,6 +2353,15 @@ export default function App() {
           {isAdmin && (
             <div className={`nav-item ${page==='users' ? 'active' : ''}`} onClick={() => setPage('users')}>
               {Icon.shieldUser} User Access
+            </div>
+          )}
+          {isSuperAdmin && (
+            <div className={`nav-item ${page==='setup' ? 'active' : ''}`} onClick={() => setPage('setup')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+              Setup
             </div>
           )}
           <div className="sidebar-bottom">
@@ -1935,7 +2386,7 @@ export default function App() {
 
         {/* Main */}
         <main className="main">
-          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} viewerProfile={viewerProfile}/>}
+          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} orgId={ORG_ID} viewerProfile={viewerProfile}/>}
           {page === 'dashboard' && (
             <div>
               <div className="page-title" style={{marginBottom:8}}>Dashboard</div>
@@ -1946,7 +2397,8 @@ export default function App() {
               </div>
             </div>
           )}
-          {page === 'users' && isAdmin && <UsersPage showToast={showToast} isSuperAdmin={isSuperAdmin}/>}
+          {page === 'users' && isAdmin && <UsersPage showToast={showToast} isSuperAdmin={isSuperAdmin} orgId={ORG_ID}/>}
+          {page === 'setup' && isSuperAdmin && <OrgPage org={org} setOrg={setOrg} orgId={ORG_ID} showToast={showToast}/>}
         </main>
       </div>
 
