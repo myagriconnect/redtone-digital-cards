@@ -242,10 +242,17 @@ export default {
     const url  = new URL(request.url)
     const path = url.pathname
 
-    // Static prefixes
-    const staticPrefixes = ['/admin', '/signup', '/assets', '/favicon']
+    // Static prefixes — serve directly from assets
+    const staticPrefixes = ['/admin', '/assets', '/favicon']
     if (staticPrefixes.some(p => path.startsWith(p))) {
       return env.ASSETS.fetch(request)
+    }
+
+    // /signup/ — serve the admin React app (same index.html, React handles routing)
+    if (path.startsWith('/signup')) {
+      const adminUrl = new URL(request.url)
+      adminUrl.pathname = '/admin/'
+      return env.ASSETS.fetch(new Request(adminUrl.toString(), request))
     }
 
     // Root -> admin
