@@ -1954,7 +1954,7 @@ function SignUp({ onBack }) {
   const [error, setError] = useState('')
   const handleSignUp = async (e) => {
     e.preventDefault()
-    if (pass \!== confirm) { setError('Passwords do not match'); return }
+    if (pass !== confirm) { setError('Passwords do not match'); return }
     if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
     setLoading(true); setError('')
     const { error } = await supabase.auth.signUp({ email, password: pass })
@@ -2001,7 +2001,7 @@ function OrgSetup({ userId, onComplete }) {
   const slug = slugify(companyName)
   const handleSetup = async (e) => {
     e.preventDefault()
-    if (\!companyName.trim()) { setError('Company name is required'); return }
+    if (!companyName.trim()) { setError('Company name is required'); return }
     if (slug.length < 2) { setError('Company name is too short'); return }
     setSaving(true); setError('')
     try {
@@ -2572,7 +2572,7 @@ export default function App() {
   if (checking) return null
 
   // No org → show OrgSetup for new users
-  if (session && \!checking && \!orgId) return (
+  if (session && !checking && !orgId) return (
     <>
       <style>{css}</style>
       <OrgSetup userId={session.user.id} onComplete={(newOrg) => {
@@ -2582,7 +2582,7 @@ export default function App() {
     </>
   )
 
-  if (\!session) return (
+  if (!session) return (
     <>
       <style>{css}</style>
       {authMode === 'signup'
