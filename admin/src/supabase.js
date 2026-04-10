@@ -9,4 +9,10 @@ export const supabase = createClient(SUPABASE_URL, ANON_KEY)
 
 // Admin client — photo uploads to Storage + org creation (uses service role key)
 // persistSession: false prevents browser from overriding service_role key with user JWT
-export const supabaseAdmin = createClient(SUP
+export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  }
+})
