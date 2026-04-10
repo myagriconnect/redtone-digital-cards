@@ -1,7 +1,7 @@
-// v3 — theme + signup + subscriptions + multi-org
 import { useState, useEffect, useRef } from 'react'
 import { supabase, supabaseAdmin } from './supabase'
-// ORG_ID is now resolved dynamically from the logged-in user's record
+const ORG_ID = 'a1b2c3d4-0001-0001-0001-000000000001'
+/*const ORG_ID = 'a1000000-0000-0000-0000-000000000001'*/
 
 /* ─── Styles ──────────────────────────────────────────────────────────── */
 const css = `
@@ -9,8 +9,7 @@ const css = `
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ── Dark mode (default) ── */
-  :root, [data-theme="dark"] {
+  :root {
     --red: #E8001D;
     --red-dim: rgba(232,0,29,0.12);
     --red-glow: rgba(232,0,29,0.25);
@@ -23,25 +22,6 @@ const css = `
     --gold: #C9973A;
     --green: #22c55e;
     --green-dim: rgba(34,197,94,0.1);
-    --bg-gradient: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,0,29,0.08) 0%, transparent 60%),
-                   radial-gradient(ellipse 40% 30% at 80% 80%, rgba(201,151,58,0.04) 0%, transparent 50%);
-  }
-
-  /* ── Light mode ── */
-  [data-theme="light"] {
-    --red: #D0001A;
-    --red-dim: rgba(208,0,26,0.08);
-    --red-glow: rgba(208,0,26,0.2);
-    --dark: #f0f2f7;
-    --card: #ffffff;
-    --border: rgba(0,0,0,0.08);
-    --border-hover: rgba(208,0,26,0.3);
-    --text: #0f1824;
-    --muted: #6b7280;
-    --gold: #b07d20;
-    --green: #16a34a;
-    --green-dim: rgba(22,163,74,0.1);
-    --bg-gradient: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(208,0,26,0.04) 0%, transparent 60%);
   }
 
   body {
@@ -49,91 +29,10 @@ const css = `
     font-family: 'Outfit', sans-serif;
     color: var(--text);
     min-height: 100vh;
-    background-image: var(--bg-gradient);
-    transition: background 0.3s, color 0.3s;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,0,29,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(201,151,58,0.04) 0%, transparent 50%);
   }
-
-  /* ── Theme toggle button ── */
-  .theme-toggle {
-    width: 36px; height: 36px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
-  }
-  .theme-toggle:hover { border-color: var(--red); color: var(--red); }
-  .theme-toggle svg { width: 16px; height: 16px; }
-
-  /* ── Signup page ── */
-  .signup-wrap {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-  .signup-card {
-    width: 460px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: 0 0 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03);
-    animation: fadeUp 0.6s cubic-bezier(.22,1,.36,1) both;
-  }
-  .signup-steps {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 28px;
-  }
-  .signup-step {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700;
-    color: var(--muted);
-    transition: all 0.2s;
-  }
-  .signup-step.active { border-color: var(--red); color: var(--red); background: var(--red-dim); }
-  .signup-step.done { border-color: var(--green); color: var(--green); background: var(--green-dim); }
-  .signup-step-line { flex: 1; height: 1px; background: var(--border); }
-
-  /* ── Trial banner ── */
-  .trial-banner {
-    background: rgba(201,151,58,0.1);
-    border: 1px solid rgba(201,151,58,0.25);
-    border-radius: 10px;
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 12px;
-    color: var(--gold);
-    margin-bottom: 16px;
-  }
-  .trial-banner strong { font-weight: 700; }
-
-  /* ── Read-only overlay ── */
-  .readonly-banner {
-    background: rgba(232,0,29,0.08);
-    border: 1px solid rgba(232,0,29,0.2);
-    border-radius: 10px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13px;
-    color: var(--red);
-    margin-bottom: 20px;
-  }
-  .readonly-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
 
   /* ── Login ── */
   .login-wrap {
@@ -216,6 +115,101 @@ const css = `
     color: #ff6b6b;
     margin-bottom: 16px;
   }
+
+  /* ── Signup / Org-Setup Wizard ── */
+  .login-card-wide { width: 460px; }
+  .wizard-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 32px;
+  }
+  .step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .step-circle {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .step-circle.active {
+    border-color: var(--red);
+    background: var(--red);
+    color: white;
+    box-shadow: 0 0 16px var(--red-glow);
+  }
+  .step-circle.done {
+    border-color: var(--green);
+    background: var(--green-dim);
+    color: var(--green);
+  }
+  .step-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .step-label.active { color: var(--text); }
+  .step-connector {
+    width: 48px; height: 2px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 4px;
+    margin-bottom: 22px;
+    flex-shrink: 0;
+  }
+  .step-connector.done { background: var(--green); opacity: 0.4; }
+  .login-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .login-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .signup-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .signup-link a {
+    color: var(--red);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .signup-link a:hover { text-decoration: underline; }
+  .success-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    font-size: 28px;
+  }
+  .org-slug-preview {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -10px;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .org-slug-preview span { color: var(--red); }
 
   /* ── Layout ── */
   .layout { display: flex; min-height: 100vh; }
@@ -340,15 +334,11 @@ const css = `
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 20px;
-    transition: all 0.25s cubic-bezier(.22,1,.36,1);
+    transition: all 0.2s;
     animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both;
   }
   .staff-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-  .staff-card:hover .staff-name,
-  .staff-card:hover .staff-pos,
-  .staff-card:hover .staff-dept { white-space: normal; overflow: visible; text-overflow: unset; }
-  .staff-card:hover .staff-name a { white-space: normal; overflow: visible; text-overflow: unset; }
-  .staff-card-top { display: flex; align-items: center; gap: 14px; }
+  .staff-card-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
   .staff-avatar {
     width: 52px; height: 52px;
     border-radius: 50%;
@@ -366,39 +356,9 @@ const css = `
     overflow: hidden;
   }
   .staff-avatar img { width: 100%; height: 100%; object-fit: cover; object-position: center top; border-radius: 50%; }
-  .staff-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .staff-name a { color: inherit; text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .staff-name a:hover { color: var(--red); }
-  .staff-pos { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .staff-slug-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: monospace; }
-  .btn-copy-link {
-    padding: 2px 4px;
-    border: none;
-    background: transparent;
-    color: rgba(255,255,255,0.35);
-    cursor: pointer;
-    transition: all 0.15s;
-    display: inline-flex;
-    align-items: center;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .staff-name-row:hover .btn-copy-link { opacity: 1; pointer-events: auto; }
-  .btn-copy-link:hover { color: var(--red); }
-  .btn-copy-link.copied { color: var(--green); }
-  .staff-card-bottom {
-    overflow: hidden;
-    max-height: 0;
-    opacity: 0;
-    transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
-    margin-top: 0;
-  }
-  .staff-card:hover .staff-card-bottom {
-    max-height: 80px;
-    opacity: 1;
-    margin-top: 14px;
-  }
+  .staff-name { font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+  .staff-pos { font-size: 11px; color: var(--muted); }
+  .staff-dept { font-size: 11px; color: var(--gold); margin-top: 2px; }
   .staff-card-actions { display: flex; gap: 8px; }
   .btn-edit, .btn-delete {
     flex: 1;
@@ -671,86 +631,6 @@ const css = `
     .form-row { grid-template-columns: 1fr; }
     .stats-row { grid-template-columns: 1fr; }
   }
-
-  /* ── Search bar ── */
-  .search-wrap {
-    position: relative;
-    margin-bottom: 24px;
-  }
-  .search-wrap svg {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px; height: 16px;
-    color: var(--muted);
-    pointer-events: none;
-  }
-  .search-input {
-    width: 100%;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 11px 14px 11px 40px;
-    color: var(--text);
-    font-family: 'Outfit', sans-serif;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .search-input:focus { border-color: var(--red); }
-  .search-input::placeholder { color: var(--muted); }
-
-  /* ── Department group ── */
-  .dept-group { margin-bottom: 28px; }
-  .dept-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 12px;
-    cursor: pointer;
-    user-select: none;
-    transition: all 0.15s;
-  }
-  .dept-header:hover { border-color: var(--border-hover); }
-  .dept-header-left { display: flex; align-items: center; gap: 10px; }
-  .dept-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
-  .dept-name-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--text); }
-  .dept-count {
-    font-size: 11px; color: var(--muted);
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    border-radius: 20px; padding: 2px 8px;
-  }
-  .dept-chevron { width: 16px; height: 16px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
-  .dept-chevron.open { transform: rotate(180deg); }
-
-  /* ── CSV Import ── */
-  .btn-secondary { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--border); border-radius:10px; padding:10px 16px; color:var(--muted); font-family:'Outfit',sans-serif; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
-  .btn-secondary:hover { border-color:var(--text); color:var(--text); }
-  .btn-secondary svg { width:15px; height:15px; flex-shrink:0; }
-  .import-drop-zone { border:2px dashed var(--border); border-radius:12px; padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.2s; }
-  .import-drop-zone:hover, .import-drop-zone.drag-over { border-color:var(--red); background:var(--red-dim); }
-  .import-drop-icon { width:40px; height:40px; margin:0 auto 14px; opacity:0.4; display:block; }
-  .import-drop-title { font-size:14px; font-weight:600; margin-bottom:6px; }
-  .import-drop-sub { font-size:12px; color:var(--muted); }
-  .import-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
-  .import-preview-table th { text-align:left; padding:8px 10px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; }
-  .import-preview-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .import-preview-table tr.is-duplicate td { background:rgba(232,0,29,0.03); }
-  .import-preview-table tr.is-skip td { opacity:0.4; }
-  .import-row-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; letter-spacing:0.5px; }
-  .import-row-badge.new { background:var(--green-dim); color:var(--green); border:1px solid rgba(34,197,94,0.2); }
-  .import-row-select { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px; padding:4px 8px; color:var(--text); font-size:11px; cursor:pointer; outline:none; }
-  .import-row-select:focus { border-color:var(--red); }
-  .import-row-select option { background:#0f1824; }
-  .import-summary { display:flex; align-items:center; gap:20px; padding:12px 16px; background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid var(--border); flex-wrap:wrap; }
-  .import-summary-item { font-size:12px; color:var(--muted); }
-  .import-summary-item span { color:var(--text); font-weight:600; }
 `
 
 /* ─── Icons ──────────────────────────────────────────────────────────── */
@@ -762,9 +642,6 @@ const Icon = {
   x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   camera: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>,
   dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
-  upload: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-  download: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-  shieldUser: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>,
 }
 
 /* ─── Toast ──────────────────────────────────────────────────────────── */
@@ -808,12 +685,7 @@ function PhotoUpload({ value, onChange, initials }) {
 }
 
 /* ─── Staff Modal ────────────────────────────────────────────────────── */
-const genCode = () => {
-  const num = String(Math.floor(Math.random() * 99999) + 1).padStart(5, '0')
-  return `rt-${num}`
-}
-
-function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: ORG_ID, staffLimit }) {
+function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId }) {
   const isEdit = !!staff?.id
   const [form, setForm] = useState({
     full_name: staff?.full_name || '',
@@ -821,8 +693,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
     email: staff?.email || '',
     mobile: staff?.mobile || '',
     dept_id: staff?.dept_id || '',
-    department_name: staff?.departments?.name || '',
-    card_slug: staff?.card_slug || (staff?.id ? '' : genCode()),
+    card_slug: staff?.card_slug || '',
     is_active: staff?.is_active ?? true,
   })
   const [photoFile, setPhotoFile] = useState(null)
@@ -830,18 +701,17 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
 
   const initials = form.full_name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const slugify = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
+  const set = (k, v) => setForm(f => {
+    const next = { ...f, [k]: v }
+    if (k === 'full_name' && !isEdit) next.card_slug = slugify(v)
+    return next
+  })
 
   const handleSave = async () => {
     if (!form.full_name || !form.position || !form.email) {
       showToast('Name, position and email are required', 'error'); return
-    }
-    // Staff limit check for new staff only
-    if (!isEdit && staffLimit) {
-      const { count } = await supabase.from('staff').select('id', { count: 'exact', head: true }).eq('org_id', ORG_ID).eq('is_active', true)
-      if (count >= staffLimit) {
-        showToast(`Staff limit reached (${staffLimit}). Upgrade your plan to add more.`, 'error'); return
-      }
     }
     setSaving(true)
     try {
@@ -851,7 +721,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabase.storage
+        const { error: upErr } = await supabaseAdmin.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
         if (upErr) {
@@ -861,30 +731,14 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
           photo_url = `https://omuopaupndqxwsuyvtoy.supabase.co/storage/v1/object/public/staff-photos/${filename}`
         }
       }
-// Resolve department name → dept_id (create if new)
-let resolvedDeptId = null
-if (form.department_name.trim()) {
-  const existing = departments.find(
-    d => d.name.toLowerCase() === form.department_name.toLowerCase().trim()
-  )
-  if (existing) {
-    resolvedDeptId = existing.id
-  } else {
-    const { data: newDept } = await supabase
-      .from('departments')
-      .insert({ name: form.department_name.trim(), org_id: ORG_ID })
-      .select()
-      .single()
-    if (newDept) resolvedDeptId = newDept.id
-  }
-}
-      const { department_name, dept_id: _d, ...formData } = form
+
       const payload = {
-      ...formData,
-      org_id: ORG_ID,
-      photo_url,
-      dept_id: resolvedDeptId,
+        ...form,
+        org_id: orgId,
+        photo_url,
+        dept_id: form.dept_id || null,
       }
+
       let error
       if (isEdit) {
         ;({ error } = await supabase.from('staff').update(payload).eq('id', staff.id))
@@ -946,37 +800,14 @@ if (form.department_name.trim()) {
           <div className="form-row">
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Department</label>
-              <input className="form-input" list="dept-suggestions" value={form.department_name} onChange={e => set('department_name', e.target.value)} placeholder="e.g. Technology Division"/>   
-              <datalist id="dept-suggestions"> {departments.map(d => <option key={d.id} value={d.name}/>)}
-              </datalist>
+              <select className="form-select" value={form.dept_id} onChange={e => set('dept_id', e.target.value)}>
+                <option value="">— None —</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
             </div>
             <div className="form-group" style={{margin:0}}>
               <label className="form-label">Card Slug</label>
-              <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
-                <input
-                  className="form-input"
-                  style={{margin:0, flex:1, fontFamily:'monospace', fontSize:'13px'}}
-                  value={form.card_slug}
-                  onChange={e => set('card_slug', e.target.value)}
-                  placeholder="rt-00000"
-                />
-                <button
-                  type="button"
-                  title="Generate new code"
-                  onClick={() => set('card_slug', genCode())}
-                  style={{
-                    flexShrink:0, height:'42px', padding:'0 12px',
-                    background:'transparent', border:'1px solid var(--border)',
-                    borderRadius:'10px', color:'var(--muted)', cursor:'pointer',
-                    fontSize:'11px', fontFamily:'Outfit,sans-serif', fontWeight:600,
-                    letterSpacing:'0.5px', whiteSpace:'nowrap', transition:'all 0.15s'
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor='var(--red)'; e.currentTarget.style.color='var(--red)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--muted)' }}
-                >
-                  ↻ New Code
-                </button>
-              </div>
+              <input className="form-input" value={form.card_slug} onChange={e => set('card_slug', e.target.value)} placeholder="ahmad-bin-abdullah"/>
             </div>
           </div>
         </div>
@@ -991,286 +822,18 @@ if (form.department_name.trim()) {
   )
 }
 
-/* ─── CSV Import Modal ───────────────────────────────────────────────── */
-function CSVImportModal({ existingStaff, departments, onClose, onImported, showToast }) {
-  const fileRef = useRef()
-  const [rows, setRows] = useState([])
-  const [importing, setImporting] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-
-  const slugify = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-
-  const downloadTemplate = () => {
-    const csv = 'name,position,email,mobile,department\nAhmad Bin Abdullah,Senior Engineer,ahmad@redtone.com,+60123456789,Technology Division'
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'staff_import_template.csv'; a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const parseCSV = (text) => {
-    // Strip BOM (added by Excel when saving as CSV) and normalise line endings
-    const clean = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    const lines = clean.trim().split('\n')
-    if (lines.length < 2) return []
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
-    return lines.slice(1).filter(l => l.trim()).map(line => {
-      const cols = []
-      let cur = '', inQ = false
-      for (const c of line) {
-        if (c === '"') { inQ = !inQ; continue }
-        if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue }
-        cur += c
-      }
-      cols.push(cur.trim())
-      const row = {}
-      headers.forEach((h, i) => { row[h] = (cols[i] || '').replace(/"/g, '') })
-      return row
-    })
-  }
-
-  const processFile = (file) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const parsed = parseCSV(e.target.result)
-      const withMeta = parsed.map(row => {
-        const name = (row.name || row.full_name || '').trim()
-        const email = (row.email || '').toLowerCase().trim()
-        const isDuplicate = existingStaff.some(s => s.email?.toLowerCase() === email && email !== '')
-        return {
-          full_name: name,
-          position: (row.position || '').trim(),
-          email,
-          mobile: (row.mobile || row.phone || '').trim(),
-          department_name: (row.department || row.dept || '').trim(),
-          card_slug: slugify(name),
-          isDuplicate,
-          action: isDuplicate ? 'skip' : 'import',
-        }
-      })
-      setRows(withMeta)
-    }
-    reader.readAsText(file)
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault(); setDragOver(false)
-    const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
-  }
-
-  const setRowAction = (idx, action) =>
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, action } : r))
-
-  const toImport = rows.filter(r => r.action !== 'skip')
-  const toSkip = rows.filter(r => r.action === 'skip')
-  const duplicates = rows.filter(r => r.isDuplicate)
-
-  // Resolve dept name → id: check cache → DB lookup (ilike) → insert → re-fetch on conflict
-  const resolveDept = async (deptName, deptCache) => {
-    const lower = deptName.toLowerCase().trim()
-    // 1. Check local cache first (avoids repeated DB calls in same import batch)
-    const cached = deptCache.find(d => d.name.toLowerCase() === lower)
-    if (cached) return cached.id
-    // 2. Case-insensitive lookup directly in DB (catches mismatches the cache might miss)
-    const { data: found } = await supabase
-      .from('departments')
-      .select('id, name')
-      .eq('org_id', ORG_ID)
-      .ilike('name', deptName.trim())
-      .maybeSingle()
-    if (found) { deptCache.push(found); return found.id }
-    // 3. Insert new department
-    const { data: created, error: insertErr } = await supabase
-      .from('departments')
-      .insert({ name: deptName.trim(), org_id: ORG_ID })
-      .select().single()
-    if (created) { deptCache.push(created); return created.id }
-    // 4. If insert failed (e.g. unique constraint race), try fetching once more
-    if (insertErr) {
-      const { data: retry } = await supabase
-        .from('departments')
-        .select('id, name')
-        .eq('org_id', ORG_ID)
-        .ilike('name', deptName.trim())
-        .maybeSingle()
-      if (retry) { deptCache.push(retry); return retry.id }
-    }
-    return null
-  }
-
-  const handleImport = async () => {
-    if (toImport.length === 0) { showToast('No rows selected to import', 'error'); return }
-    setImporting(true)
-    let success = 0, failed = 0
-    // Shared cache so departments created mid-import are reused for subsequent rows
-    const deptCache = [...departments]
-
-    for (const row of toImport) {
-      try {
-        let resolvedDeptId = null
-        if (row.department_name.trim()) {
-          resolvedDeptId = await resolveDept(row.department_name, deptCache)
-        }
-
-        const payload = {
-          full_name: row.full_name,
-          position: row.position,
-          email: row.email,
-          mobile: row.mobile,
-          dept_id: resolvedDeptId,
-          card_slug: row.card_slug,
-          org_id: ORG_ID,
-          is_active: true,
-        }
-
-        if (row.action === 'overwrite') {
-          const match = existingStaff.find(s => s.email?.toLowerCase() === row.email)
-          if (match) {
-            const { error } = await supabase.from('staff').update(payload).eq('id', match.id)
-            if (error) throw error
-          }
-        } else {
-          const { error } = await supabase.from('staff').insert(payload)
-          if (error) throw error
-        }
-        success++
-      } catch (e) {
-        console.error('Row failed:', row.email, e.message)
-        failed++
-      }
-    }
-
-    showToast(
-      `Imported ${success} staff${failed ? `, ${failed} failed` : ''}`,
-      success > 0 ? 'success' : 'error'
-    )
-    onImported()
-    onClose()
-    setImporting(false)
-  }
-
-  return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ width: '780px' }}>
-        <div className="modal-header">
-          <div className="modal-title">Import Staff CSV</div>
-          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-            <button className="btn-secondary" onClick={downloadTemplate}>
-              {Icon.download} Download Template
-            </button>
-            <button className="modal-close" onClick={onClose}>{Icon.x}</button>
-          </div>
-        </div>
-
-        <div className="modal-body">
-          {rows.length === 0 ? (
-            <div
-              className={`import-drop-zone ${dragOver ? 'drag-over' : ''}`}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileRef.current.click()}
-            >
-              <input ref={fileRef} type="file" accept=".csv" style={{ display:'none' }}
-                onChange={e => e.target.files[0] && processFile(e.target.files[0])}/>
-              <svg className="import-drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-              <div className="import-drop-title">Drop your CSV file here</div>
-              <div className="import-drop-sub">or click to browse · columns: name, position, email, mobile, department</div>
-            </div>
-          ) : (
-            <>
-              <div className="import-summary">
-                <div className="import-summary-item">Total: <span>{rows.length}</span></div>
-                <div className="import-summary-item">To import: <span style={{color:'var(--green)'}}>{toImport.length}</span></div>
-                {toSkip.length > 0 && <div className="import-summary-item">Skipping: <span>{toSkip.length}</span></div>}
-                {duplicates.length > 0 && <div className="import-summary-item">Duplicates: <span style={{color:'var(--red)'}}>{duplicates.length} — choose skip or overwrite</span></div>}
-                <button className="btn-secondary" style={{marginLeft:'auto',padding:'4px 12px',fontSize:'11px'}} onClick={() => setRows([])}>
-                  Clear
-                </button>
-              </div>
-
-              <div style={{ overflowX:'auto', maxHeight:'360px', overflowY:'auto', marginTop:16 }}>
-                <table className="import-preview-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Position</th>
-                      <th>Email</th>
-                      <th>Mobile</th>
-                      <th>Department</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, idx) => (
-                      <tr key={idx} className={`${row.isDuplicate ? 'is-duplicate' : ''} ${row.action === 'skip' ? 'is-skip' : ''}`}>
-                        <td title={row.full_name}>{row.full_name}</td>
-                        <td title={row.position}>{row.position}</td>
-                        <td style={{fontFamily:'monospace',fontSize:'11px'}} title={row.email}>{row.email}</td>
-                        <td>{row.mobile}</td>
-                        <td title={row.department_name}>{row.department_name}</td>
-                        <td>
-                          {row.isDuplicate ? (
-                            <select className="import-row-select" value={row.action} onChange={e => setRowAction(idx, e.target.value)}>
-                              <option value="skip">Skip (duplicate)</option>
-                              <option value="overwrite">Overwrite</option>
-                            </select>
-                          ) : (
-                            <span className="import-row-badge new">New</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          {rows.length > 0 && (
-            <button className="btn-save" onClick={handleImport} disabled={importing || toImport.length === 0}>
-              {importing
-                ? <><div className="spinner"/> Importing…</>
-                : <>Import {toImport.length} Staff</>
-              }
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ─── Staff List ─────────────────────────────────────────────────────── */
-function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadOnly, staffLimit }) {
-  const ORG_ID = orgId
-  const isHR = userRole === 'admin' || userRole === 'super_admin'
+function StaffPage({ showToast, orgId, orgName }) {
   const [staff, setStaff] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(null)
-  const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState({})
-  const [importModal, setImportModal] = useState(false)
+  const [modal, setModal] = useState(null) // null | 'add' | staffObj
 
   const load = async () => {
     setLoading(true)
-    let staffQuery = supabase.from('staff').select('*, departments(name)').eq('org_id', ORG_ID).order('full_name')
-    if (!isHR && viewerProfile && !viewerProfile.can_view_all && viewerProfile.dept_id) {
-      staffQuery = staffQuery.eq('dept_id', viewerProfile.dept_id)
-    }
     const [s, d] = await Promise.all([
-      staffQuery,
-      supabase.from('departments').select('*').eq('org_id', ORG_ID)
+      supabase.from('staff').select('*, departments(name)').eq('org_id', orgId).order('full_name'),
+      supabase.from('departments').select('*').eq('org_id', orgId)
     ])
     setStaff(s.data || [])
     setDepartments(d.data || [])
@@ -1288,60 +851,17 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadO
   }
 
   const initials = (name) => name.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase()
-  const toggleCollapse = (dept) => setCollapsed(prev => ({ ...prev, [dept]: !prev[dept] }))
-
-  // Filter by search query
-  const filtered = staff.filter(s => {
-    const q = search.toLowerCase()
-    return (
-      s.full_name.toLowerCase().includes(q) ||
-      (s.departments?.name || '').toLowerCase().includes(q) ||
-      s.position.toLowerCase().includes(q)
-    )
-  })
-
-  // Group filtered staff by department
-  const grouped = filtered.reduce((acc, s) => {
-    const dept = s.departments?.name || 'Uncategorized'
-    if (!acc[dept]) acc[dept] = []
-    acc[dept].push(s)
-    return acc
-  }, {})
-
-  const deptKeys = Object.keys(grouped).sort()
 
   return (
     <>
-      {isReadOnly && (
-        <div className="readonly-banner">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Read-only mode — your trial has expired. Contact us to upgrade and regain full access.
-        </div>
-      )}
       <div className="page-header">
         <div>
           <div className="page-title">Staff Management</div>
-          <div className="page-sub">
-            {staff.length} staff members · REDtone IoT
-            {!isHR && <span style={{marginLeft:8,padding:'2px 8px',borderRadius:6,fontSize:10,fontWeight:600,letterSpacing:'1px',textTransform:'uppercase',background:'rgba(201,151,58,0.12)',color:'var(--gold)',border:'1px solid rgba(201,151,58,0.25)'}}>View Only</span>}
-          </div>
+          <div className="page-sub">{staff.length} staff members · {orgName}</div>
         </div>
-        {isHR && (
-          <div style={{ display:'flex', gap:10 }}>
-            <button className="btn-secondary" onClick={() => {
-              if (isReadOnly) { showToast('Upgrade your plan to import staff', 'error'); return }
-              setImportModal(true)
-            }}>
-              {Icon.upload} Import CSV
-            </button>
-            <button className="btn-primary" onClick={() => {
-              if (isReadOnly) { showToast('Upgrade your plan to add staff', 'error'); return }
-              setModal('add')
-            }}>
-              {Icon.plus} Add Staff
-            </button>
-          </div>
-        )}
+        <button className="btn-primary" onClick={() => setModal('add')}>
+          {Icon.plus} Add Staff
+        </button>
       </div>
 
       <div className="stats-row">
@@ -1359,112 +879,45 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadO
         </div>
       </div>
 
-      {/* Search bar */}
-      <div className="search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          className="search-input"
-          placeholder="Search by name, position or department..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
       {loading ? (
         <div className="empty-state"><div className="spinner" style={{margin:'0 auto'}}/></div>
-      ) : filtered.length === 0 ? (
+      ) : staff.length === 0 ? (
         <div className="empty-state">
           {Icon.users}
-          <p>{search ? `No results for "${search}"` : 'No staff yet. Add your first staff member!'}</p>
+          <p>No staff yet. Add your first staff member!</p>
         </div>
       ) : (
-        deptKeys.map(dept => {
-          const members = grouped[dept]
-          const isOpen = !collapsed[dept]
-          return (
-            <div className="dept-group" key={dept}>
-              {/* Department header — click to collapse/expand */}
-              <div className="dept-header" onClick={() => toggleCollapse(dept)}>
-                <div className="dept-header-left">
-                  <div className="dept-dot"/>
-                  <span className="dept-name-label">{dept}</span>
-                  <span className="dept-count">{members.length} staff</span>
+        <div className="staff-grid">
+          {staff.map((s, i) => (
+            <div className="staff-card" key={s.id} style={{ animationDelay: `${i * 0.05}s` }}>
+              <div className="staff-card-top">
+                <div className="staff-avatar">
+                  {s.photo_url
+                    ? <img src={s.photo_url} alt={s.full_name}/>
+                    : initials(s.full_name)
+                  }
                 </div>
-                <svg className={`dept-chevron ${isOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+                <div style={{flex:1, minWidth:0}}>
+                  <div className="staff-name" style={{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.full_name}</div>
+                  <div className="staff-pos">{s.position}</div>
+                  {s.departments && <div className="staff-dept">{s.departments.name}</div>}
+                </div>
+                <span className="badge badge-active">Active</span>
               </div>
-
-              {/* Staff cards — hidden when collapsed */}
-              {isOpen && (
-                <div className="staff-grid">
-                  {members.map((s, i) => (
-                    <div className="staff-card" key={s.id} style={{ animationDelay: `${i * 0.05}s` }}>
-                      <div className="staff-card-top">
-                        <div className="staff-avatar">
-                          {s.photo_url
-                            ? <img src={s.photo_url} alt={s.full_name}/>
-                            : initials(s.full_name)
-                          }
-                        </div>
-                        <div style={{flex:1, minWidth:0}}>
-                          <div className="staff-name-row" style={{display:'flex',alignItems:'center',gap:'4px'}}>
-                            <div className="staff-name" style={{flex:1,minWidth:0}}>
-                              <a href={`/${s.card_slug}/`} target="_blank" rel="noopener noreferrer" title="View card">
-                                {s.full_name.toUpperCase()}
-                              </a>
-                            </div>
-                            <button
-                              className="btn-copy-link"
-                              title="Copy card link"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const btn = e.currentTarget
-                                const url = `${window.location.origin}/${s.card_slug}/`
-                                navigator.clipboard.writeText(url).then(() => {
-                                  btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-                                  btn.classList.add('copied')
-                                  setTimeout(() => {
-                                    btn.innerHTML = '<img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="13" height="13" style="display:block;opacity:0.5" />'
-                                    btn.classList.remove('copied')
-                                  }, 2000)
-                                })
-                              }}
-                            >
-                              <img src="https://img.icons8.com/ios7/96/FFFFFF/link.png" width="13" height="13" style={{display:'block',opacity:0.5}}/>
-                            </button>
-                          </div>
-                          <div className="staff-pos">{s.position.toUpperCase()}</div>
-                          {s.departments && <div className="staff-dept">{s.departments.name.toUpperCase()}</div>}
-                        </div>
-                        <span className="badge badge-active">Active</span>
-                      </div>
-                      <div className="staff-card-bottom">
-                        <div className="staff-slug-row" style={{fontSize:'12px',color:'var(--muted)',marginBottom:'10px',fontFamily:'monospace'}}>
-                          /{s.card_slug}
-                        </div>
-                        {isHR ? (
-                          <div className="staff-card-actions">
-                            <button className="btn-edit" onClick={() => setModal(s)}>
-                              {Icon.edit} Edit
-                            </button>
-                            <button className="btn-delete" onClick={() => handleDelete(s)}>
-                              {Icon.trash}
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{fontSize:11,color:'var(--muted)',letterSpacing:'0.5px'}}>View only access</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div style={{fontSize:'12px',color:'var(--muted)',marginBottom:'14px',fontFamily:'monospace'}}>
+                /{s.card_slug}
+              </div>
+              <div className="staff-card-actions">
+                <button className="btn-edit" onClick={() => setModal(s)}>
+                  {Icon.edit} Edit
+                </button>
+                <button className="btn-delete" onClick={() => handleDelete(s)}>
+                  {Icon.trash}
+                </button>
+              </div>
             </div>
-          )
-        })
+          ))}
+        </div>
       )}
 
       {modal && (
@@ -1474,846 +927,211 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadO
           onClose={() => setModal(null)}
           onSaved={load}
           showToast={showToast}
-          orgId={ORG_ID}
-          staffLimit={staffLimit}
-        />
-      )}
-
-      {importModal && (
-        <CSVImportModal
-          existingStaff={staff}
-          departments={departments}
-          onClose={() => setImportModal(false)}
-          onImported={load}
-          showToast={showToast}
+          orgId={orgId}
         />
       )}
     </>
-  )
-}
-
-
-
-/* ─── Users Page (HR only) ───────────────────────────────────────────── */
-function UsersPage({ showToast, isSuperAdmin, orgId }) {
-  const ORG_ID = orgId
-  const [users, setUsers] = useState([])
-  const [departments, setDepartments] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteDeptId, setInviteDeptId] = useState('')
-  const [inviteAll, setInviteAll] = useState(false)
-  const [inviting, setInviting] = useState(false)
-
-  const load = async () => {
-    setLoading(true)
-    const [u, d, a] = await Promise.all([
-      supabase.from('org_users_with_email').select('*, departments(name)').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
-      supabase.from('departments').select('*').eq('org_id', ORG_ID).order('name'),
-      supabase.from('hr_admins_with_email').select('*').eq('org_id', ORG_ID).order('created_at', { ascending: false }),
-    ])
-    const viewers = (u.data || []).map(x => ({ ...x, isAdmin: false }))
-    const admins  = (a.data || []).map(x => ({ ...x, isAdmin: true }))
-    setUsers([...admins, ...viewers])
-    setDepartments(d.data || [])
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [])
-
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) { showToast('Email is required', 'error'); return }
-    setInviting(true)
-    try {
-      // 1. Create auth user via invite
-      const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(inviteEmail.trim())
-      if (inviteErr) throw inviteErr
-      const newUserId = inviteData.user.id
-      // 2. Insert into org_users
-      const { error: insertErr } = await supabase.from('org_users').insert({
-        org_id: orgId,
-        user_id: newUserId,
-        role: 'viewer',
-        dept_id: inviteAll ? null : (inviteDeptId || null),
-        can_view_all: inviteAll,
-      })
-      if (insertErr) throw insertErr
-      showToast(`Invite sent to ${inviteEmail}`, 'success')
-      setInviteEmail(''); setInviteDeptId(''); setInviteAll(false)
-      load()
-    } catch (e) {
-      showToast(e.message || 'Invite failed', 'error')
-    } finally {
-      setInviting(false)
-    }
-  }
-
-  const toggleViewAll = async (u) => {
-    const newVal = !u.can_view_all
-    const { error } = await supabase.from('org_users')
-      .update({ can_view_all: newVal, dept_id: newVal ? null : u.dept_id })
-      .eq('id', u.id)
-    if (error) { showToast('Update failed', 'error'); return }
-    showToast(newVal ? 'Granted all-department access' : 'Restricted to department only', 'success')
-    load()
-  }
-
-  const changeDept = async (u, deptId) => {
-    const { error } = await supabase.from('org_users').update({ dept_id: deptId || null }).eq('id', u.id)
-    if (error) { showToast('Update failed', 'error'); return }
-    showToast('Department updated', 'success')
-    load()
-  }
-
-  const removeUser = async (u) => {
-    const label = u.isAdmin ? 'admin access' : 'viewer access'
-    if (!confirm(`Remove ${label} for ${u.email}?`)) return
-    const table = u.isAdmin ? 'hr_admins' : 'org_users'
-    const { error } = await supabaseAdmin.from(table).delete().eq('id', u.id)
-    if (error) { showToast('Remove failed', 'error'); return }
-    showToast('Access removed', 'success')
-    load()
-  }
-
-  const toggleAdminRole = async (u) => {
-    if (u.isAdmin) {
-      if (!confirm(`Demote ${u.email} to Viewer? They will lose edit access.`)) return
-      try {
-        const { error: insertErr } = await supabaseAdmin.from('org_users').insert({
-          org_id: orgId, user_id: u.user_id, role: 'viewer', dept_id: null, can_view_all: true,
-        })
-        if (insertErr) throw insertErr
-        const { error: deleteErr } = await supabaseAdmin.from('hr_admins').delete().eq('id', u.id)
-        if (deleteErr) throw deleteErr
-        showToast(`${u.email} demoted to Viewer`, 'success')
-        load()
-      } catch (e) { showToast(e.message || 'Demote failed', 'error') }
-    } else {
-      if (!confirm(`Promote ${u.email} to Admin? They will get full edit access.`)) return
-      try {
-        const { error: insertErr } = await supabaseAdmin.from('hr_admins').insert({
-          org_id: orgId, user_id: u.user_id, role: 'hr_admin',
-        })
-        if (insertErr) throw insertErr
-        const { error: deleteErr } = await supabaseAdmin.from('org_users').delete().eq('id', u.id)
-        if (deleteErr) throw deleteErr
-        showToast(`${u.email} promoted to Admin`, 'success')
-        load()
-      } catch (e) { showToast(e.message || 'Promote failed', 'error') }
-    }
-  }
-
-  return (
-    <>
-      <div className="page-header">
-        <div>
-          <div className="page-title">User Access</div>
-          <div className="page-sub">Manage viewers and admins</div>
-        </div>
-      </div>
-
-      {/* Invite panel */}
-      <div className="stat-card" style={{marginBottom:28}}>
-        <div className="stat-label" style={{marginBottom:16}}>Invite New Viewer</div>
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:12, alignItems:'end'}}>
-          <div>
-            <label className="form-label">Email Address</label>
-            <input
-              className="form-input"
-              type="email"
-              placeholder="staff@redtone.com"
-              value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="form-label">Department Access</label>
-            <select
-              className="form-select"
-              value={inviteAll ? '__all__' : inviteDeptId}
-              onChange={e => {
-                if (e.target.value === '__all__') { setInviteAll(true); setInviteDeptId('') }
-                else { setInviteAll(false); setInviteDeptId(e.target.value) }
-              }}
-            >
-              <option value="">Select department…</option>
-              <option value="__all__">All Departments</option>
-              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <button className="btn-primary" onClick={handleInvite} disabled={inviting} style={{height:42}}>
-            {inviting ? <div className="spinner"/> : <>{Icon.plus} Send Invite</>}
-          </button>
-        </div>
-        <div style={{fontSize:12,color:'var(--muted)',marginTop:10}}>
-          An invite email will be sent. The viewer can only browse staff cards — no edit or delete access.
-        </div>
-      </div>
-
-      {/* Viewers table */}
-      {loading ? (
-        <div className="empty-state"><div className="spinner" style={{margin:'0 auto'}}/></div>
-      ) : users.length === 0 ? (
-        <div className="empty-state">
-          {Icon.users}
-          <p>No viewers yet. Invite someone above.</p>
-        </div>
-      ) : (
-        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
-            <thead>
-              <tr style={{borderBottom:'1px solid var(--border)'}}>
-                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>User</th>
-                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Department</th>
-                <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Access Level</th>
-                {isSuperAdmin && <th style={{textAlign:'left',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Admin</th>}
-                <th style={{textAlign:'right',padding:'12px 20px',fontSize:11,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u, i) => (
-                <tr key={u.id} style={{borderBottom: i < users.length-1 ? '1px solid var(--border)' : 'none'}}>
-                  <td style={{padding:'14px 20px'}}>
-                    <div style={{fontSize:13,fontWeight:500}}>{u.email || u.user_id}</div>
-                    <div style={{fontSize:11,color: u.isAdmin ? 'var(--red)' : 'var(--muted)',marginTop:2}}>{u.isAdmin ? 'Admin' : 'Viewer'}</div>
-                  </td>
-                  <td style={{padding:'14px 20px'}}>
-                    {u.isAdmin ? (
-                      <span style={{color:'var(--red)',fontSize:12}}>Full Access</span>
-                    ) : u.can_view_all ? (
-                      <span style={{color:'var(--gold)',fontSize:12}}>All Departments</span>
-                    ) : (
-                      <select
-                        className="import-row-select"
-                        value={u.dept_id || ''}
-                        onChange={e => changeDept(u, e.target.value)}
-                      >
-                        <option value="">— No dept —</option>
-                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
-                    )}
-                  </td>
-                  <td style={{padding:'14px 20px'}}>
-                    {u.isAdmin ? (
-                      <span style={{fontSize:12,color:'var(--muted)'}}>—</span>
-                    ) : (
-                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
-                        <div
-                          onClick={() => toggleViewAll(u)}
-                          style={{
-                            width:36, height:20, borderRadius:10,
-                            background: u.can_view_all ? 'var(--green)' : 'rgba(255,255,255,0.1)',
-                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
-                          }}
-                        >
-                          <div style={{
-                            width:14, height:14, borderRadius:'50%', background:'white',
-                            position:'absolute', top:3,
-                            left: u.can_view_all ? 19 : 3,
-                            transition:'left 0.2s'
-                          }}/>
-                        </div>
-                        <span style={{fontSize:12,color: u.can_view_all ? 'var(--green)' : 'var(--muted)'}}>
-                          {u.can_view_all ? 'All departments' : 'Own dept only'}
-                        </span>
-                      </label>
-                    )}
-                  </td>
-                  {isSuperAdmin && (
-                    <td style={{padding:'14px 20px'}}>
-                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
-                        <div
-                          onClick={() => toggleAdminRole(u)}
-                          title={u.isAdmin ? 'Demote to Viewer' : 'Promote to Admin'}
-                          style={{
-                            width:36, height:20, borderRadius:10,
-                            background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
-                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
-                          }}
-                        >
-                          <div style={{
-                            width:14, height:14, borderRadius:'50%', background:'white',
-                            position:'absolute', top:3, left: u.isAdmin ? 19 : 3, transition:'left 0.2s'
-                          }}/>
-                        </div>
-                        <span style={{fontSize:12,color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
-                          {u.isAdmin ? 'Admin' : 'Viewer'}
-                        </span>
-                      </label>
-                    </td>
-                  )}
-                  {isSuperAdmin && (
-                    <td style={{padding:'14px 20px'}}>
-                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',userSelect:'none'}}>
-                        <div
-                          onClick={() => toggleAdminRole(u)}
-                          title={u.isAdmin ? 'Demote to Viewer' : 'Promote to Admin'}
-                          style={{
-                            width:36, height:20, borderRadius:10,
-                            background: u.isAdmin ? 'var(--red)' : 'rgba(255,255,255,0.1)',
-                            position:'relative', transition:'background 0.2s', cursor:'pointer', flexShrink:0
-                          }}
-                        >
-                          <div style={{
-                            width:14, height:14, borderRadius:'50%', background:'white',
-                            position:'absolute', top:3, left: u.isAdmin ? 19 : 3, transition:'left 0.2s'
-                          }}/>
-                        </div>
-                        <span style={{fontSize:12,color: u.isAdmin ? 'var(--red)' : 'var(--muted)'}}>
-                          {u.isAdmin ? 'Admin' : 'Viewer'}
-                        </span>
-                      </label>
-                    </td>
-                  )}
-                  <td style={{padding:'14px 20px',textAlign:'right'}}>
-                    <button
-                      onClick={() => removeUser(u)}
-                      style={{
-                        background:'transparent', border:'1px solid transparent',
-                        borderRadius:8, padding:'6px 10px', color:'var(--muted)',
-                        fontSize:12, cursor:'pointer', transition:'all 0.15s'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(232,0,29,0.3)'; e.currentTarget.style.color='var(--red)'; e.currentTarget.style.background='var(--red-dim)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; e.currentTarget.style.background='transparent' }}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  )
-}
-
-
-/* ─── Set Password (invite + reset flow) ────────────────────────────── */
-/* ─── Set Password (invite + reset flow) ────────────────────────────── */
-function SetPassword({ onDone, mode }) {
-  const [pass, setPass] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSet = async (e) => {
-    e.preventDefault()
-    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
-    if (pass !== confirm) { setError('Passwords do not match'); return }
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.updateUser({ password: pass })
-    if (error) { setError(error.message); setLoading(false) }
-    else onDone()
-  }
-
-  const isInvite = mode === 'invite'
-  return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
-        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
-          {isInvite ? 'Welcome! Please set a password to complete your account setup.' : 'Enter a new password for your account.'}
-        </div>
-        {error && <div className="error-msg">{error}</div>}
-        <form onSubmit={handleSet}>
-          <label className="login-label">New Password</label>
-          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters" autoFocus/>
-          <label className="login-label">Confirm Password</label>
-          <input className="login-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
-          <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? 'Saving...' : (isInvite ? 'Set Password & Continue' : 'Reset Password & Continue')}
-          </button>
-        </form>
-      </div>
-    </div>
   )
 }
 
 /* ─── Login ──────────────────────────────────────────────────────────── */
-function Login({ onLogin }) {
+function Login({ onSignUp }) {
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [view, setView] = useState('login')
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true); setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
     if (error) { setError(error.message); setLoading(false) }
-    else onLogin()
   }
-
-  const handleForgot = async (e) => {
-    e.preventDefault()
-    if (!email.trim()) { setError('Please enter your email address'); return }
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: window.location.origin + window.location.pathname,
-    })
-    if (error) { setError(error.message); setLoading(false) }
-    else { setView('forgot_sent'); setLoading(false) }
-  }
-
-  if (view === 'forgot_sent') return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Check Your Email</div>
-        <div style={{textAlign:'center',marginBottom:24}}>
-          <div style={{fontSize:40,marginBottom:16}}>📬</div>
-          <div style={{fontSize:14,color:'var(--text)',lineHeight:1.6,marginBottom:8}}>We sent a password reset link to</div>
-          <div style={{fontSize:14,fontWeight:600,color:'var(--red)',marginBottom:16}}>{email}</div>
-          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>Check your inbox and click the link. The link expires in 1 hour.</div>
-        </div>
-        <button className="login-btn" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',boxShadow:'none'}}
-          onClick={() => { setView('login'); setError('') }}>Back to Sign In</button>
-      </div>
-    </div>
-  )
-
-  if (view === 'forgot') return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Reset Password</div>
-        <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
-          Enter your email and we'll send you a reset link.
-        </div>
-        {error && <div className="error-msg">{error}</div>}
-        <form onSubmit={handleForgot}>
-          <label className="login-label">Email</label>
-          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
-          <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Reset Link'}</button>
-        </form>
-        <button onClick={() => { setView('login'); setError('') }}
-          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px'}}>
-          ← Back to Sign In
-        </button>
-      </div>
-    </div>
-  )
 
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Digital Cards Portal</div>
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleLogin}>
           <label className="login-label">Email</label>
-          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@redtone.com" autoFocus/>
+          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus/>
           <label className="login-label">Password</label>
           <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••"/>
-          <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign In'}</button>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
-        <button onClick={() => { setView('forgot'); setError('') }}
-          style={{width:'100%',marginTop:12,background:'transparent',border:'none',color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px',transition:'color 0.15s'}}
-          onMouseEnter={e => e.currentTarget.style.color='var(--text)'}
-          onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}>
-          Forgot password?
-        </button>
+        <div className="signup-link">
+          Don't have an account? <a onClick={onSignUp}>Create one →</a>
+        </div>
       </div>
     </div>
   )
 }
-/* ─── OrgPage (Setup) ────────────────────────────────────────────────── */
-function OrgPage({ org, setOrg, orgId, showToast }) {
-  const [form, setForm] = useState({
-    name: '', industry: '', website: '', phone: '', address: '',
-    tagline: '', primary_color: '#E8001D', secondary_color: '#C9973A', logo_url: ''
-  })
-  const [logoFile, setLogoFile] = useState(null)
-  const [logoPreview, setLogoPreview] = useState(null)
-  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (org) {
-      setForm({
-        name: org.name || '',
-        industry: org.industry || '',
-        website: org.website || '',
-        phone: org.phone || '',
-        address: org.address || '',
-        tagline: org.tagline || '',
-        primary_color: org.primary_color || '#E8001D',
-        secondary_color: org.secondary_color || '#C9973A',
-        logo_url: org.logo_url || '',
-      })
-      setLogoPreview(org.logo_url || null)
-    }
-  }, [org])
+/* ─── Sign Up ────────────────────────────────────────────────────────── */
+function SignUp({ onBack }) {
+  const [email, setEmail] = useState('')
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setLogoFile(file)
-    setLogoPreview(URL.createObjectURL(file))
+  const handleSignUp = async (e) => {
+    e.preventDefault()
+    if (pass !== confirm) { setError('Passwords do not match'); return }
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signUp({ email, password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+    // On success, session fires → App detects no org → shows OrgSetup automatically
   }
 
-  const handleSave = async () => {
-    if (!orgId) { showToast('No org ID — please reload', 'error'); return }
-    setSaving(true)
+  return (
+    <div className="login-wrap">
+      <div className="login-card login-card-wide">
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
+
+        {/* Step wizard */}
+        <div className="wizard-steps">
+          <div className="step-item">
+            <div className="step-circle active">1</div>
+            <div className="step-label active">Account</div>
+          </div>
+          <div className="step-connector"/>
+          <div className="step-item">
+            <div className="step-circle">2</div>
+            <div className="step-label">Company</div>
+          </div>
+          <div className="step-connector"/>
+          <div className="step-item">
+            <div className="step-circle">3</div>
+            <div className="step-label">Done</div>
+          </div>
+        </div>
+
+        <div className="login-title">Create your account</div>
+        <div className="login-desc">Start your free trial. No credit card required.</div>
+
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSignUp}>
+          <label className="login-label">Work Email</label>
+          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus/>
+          <label className="login-label">Password</label>
+          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters"/>
+          <label className="login-label">Confirm Password</label>
+          <input className="login-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Creating account...' : 'Continue →'}
+          </button>
+        </form>
+        <div className="signup-link">
+          Already have an account? <a onClick={onBack}>Sign in</a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Org Setup ──────────────────────────────────────────────────────── */
+function OrgSetup({ userId, onComplete }) {
+  const [companyName, setCompanyName] = useState('')
+  const [industry, setIndustry] = useState('')
+  const [website, setWebsite] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const slugify = (name) => name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  const slug = slugify(companyName)
+
+  const handleSetup = async (e) => {
+    e.preventDefault()
+    if (!companyName.trim()) { setError('Company name is required'); return }
+    if (slug.length < 2) { setError('Company name is too short'); return }
+    setSaving(true); setError('')
     try {
-      let logo_url = form.logo_url
-      if (logoFile) {
-        const ext = logoFile.name.split('.').pop()
-        const path = `org-logos/${orgId}/logo.${ext}`
-        const { error: uploadErr } = await supabaseAdmin.storage
-          .from('staff-photos')
-          .upload(path, logoFile, { upsert: true, contentType: logoFile.type })
-        if (uploadErr) throw uploadErr
-        const { data: urlData } = supabaseAdmin.storage.from('staff-photos').getPublicUrl(path)
-        logo_url = urlData.publicUrl + '?t=' + Date.now()
-      }
-      const payload = {
-        name: form.name, industry: form.industry, website: form.website,
-        phone: form.phone, address: form.address, tagline: form.tagline,
-        primary_color: form.primary_color, secondary_color: form.secondary_color,
-        logo_url,
-      }
-      const { error: updateErr } = await supabaseAdmin.from('organizations').update(payload).eq('id', orgId)
-      if (updateErr) throw updateErr
-      setOrg(prev => ({ ...prev, ...payload }))
-      setForm(f => ({ ...f, logo_url }))
-      setLogoPreview(logo_url)
-      setLogoFile(null)
-      showToast('Organization settings saved!', 'success')
+      // Use admin client to bypass RLS for org creation
+      const { data: org, error: orgErr } = await supabaseAdmin
+        .from('organizations')
+        .insert({ name: companyName.trim(), slug, industry: industry || null, website: website || null })
+        .select()
+        .single()
+      if (orgErr) throw orgErr
+
+      // Assign creator as super admin
+      const { error: saErr } = await supabaseAdmin
+        .from('super_admins')
+        .insert({ user_id: userId, org_id: org.id })
+      if (saErr) throw saErr
+
+      onComplete(org)
     } catch (e) {
-      showToast(e.message || 'Save failed', 'error')
-    } finally {
+      setError(e.message || 'Setup failed. Please try again.')
       setSaving(false)
     }
   }
 
-  const inp = {
-    width:'100%', background:'rgba(255,255,255,0.04)', border:'1px solid var(--border)',
-    borderRadius:10, padding:'11px 14px', color:'var(--text)',
-    fontFamily:"'Outfit',sans-serif", fontSize:14, outline:'none',
-    transition:'border-color 0.2s', boxSizing:'border-box'
-  }
-  const lbl = {
-    display:'block', fontSize:11, fontWeight:600, letterSpacing:'1.5px',
-    textTransform:'uppercase', color:'var(--muted)', marginBottom:8
-  }
-  const section = {
-    background:'var(--card)', border:'1px solid var(--border)',
-    borderRadius:14, padding:28, marginBottom:24
-  }
-  const sectionTitle = {
-    fontSize:13, letterSpacing:'1px', textTransform:'uppercase',
-    color:'var(--muted)', marginBottom:20, fontWeight:600
-  }
-
   return (
-    <div style={{maxWidth:760}}>
-      <div className="page-header">
-        <div>
-          <div className="page-title">Setup</div>
-          <div className="page-sub">Customize your organization branding and contact info</div>
-        </div>
-        <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <><div className="spinner"/></> : 'Save Changes'}
-        </button>
-      </div>
+    <div className="login-wrap">
+      <div className="login-card login-card-wide">
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
 
-      {/* Logo */}
-      <div style={section}>
-        <div style={sectionTitle}>Company Logo</div>
-        <div style={{display:'flex',alignItems:'center',gap:24}}>
-          <div style={{
-            width:140, height:80, background:'rgba(255,255,255,0.03)',
-            borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
-            border:'2px dashed var(--border)', overflow:'hidden', flexShrink:0
-          }}>
-            {logoPreview
-              ? <img src={logoPreview} alt="logo" style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',padding:8}}/>
-              : <span style={{color:'var(--muted)',fontSize:12}}>No logo</span>
-            }
+        {/* Step wizard */}
+        <div className="wizard-steps">
+          <div className="step-item">
+            <div className="step-circle done">✓</div>
+            <div className="step-label">Account</div>
           </div>
-          <div>
-            <label style={{
-              display:'inline-block', padding:'9px 20px', background:'rgba(255,255,255,0.04)',
-              border:'1px solid var(--border)', borderRadius:8, cursor:'pointer',
-              fontSize:13, color:'var(--text)', marginBottom:8, transition:'all 0.15s'
-            }}>
-              {logoFile ? logoFile.name : 'Choose Logo File'}
-              <input type="file" accept="image/*" onChange={handleLogoChange} style={{display:'none'}}/>
-            </label>
-            <div style={{color:'var(--muted)',fontSize:12}}>PNG or SVG recommended · Max 2MB · Transparent background preferred</div>
+          <div className="step-connector done"/>
+          <div className="step-item">
+            <div className="step-circle active">2</div>
+            <div className="step-label active">Company</div>
+          </div>
+          <div className="step-connector"/>
+          <div className="step-item">
+            <div className="step-circle">3</div>
+            <div className="step-label">Done</div>
           </div>
         </div>
-      </div>
 
-      {/* Company Info */}
-      <div style={section}>
-        <div style={sectionTitle}>Company Information</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 24px'}}>
-          {[
-            ['name','Company Name *','e.g. REDtone IoT Sdn Bhd'],
-            ['industry','Industry','e.g. Telecommunications'],
-            ['tagline','Tagline','e.g. Connecting the Future'],
-            ['website','Website','https://www.example.com'],
-            ['phone','Phone','+60 3-XXXX XXXX'],
-            ['address','Address','Kuala Lumpur, Malaysia'],
-          ].map(([key, label, placeholder]) => (
-            <div key={key} style={{marginBottom:20}}>
-              <label style={lbl}>{label}</label>
-              <input
-                style={inp}
-                value={form[key]}
-                onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
-                placeholder={placeholder}
-                onFocus={e => e.target.style.borderColor='var(--red)'}
-                onBlur={e => e.target.style.borderColor='var(--border)'}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Brand Colors */}
-      <div style={section}>
-        <div style={sectionTitle}>Brand Colors</div>
-        <div style={{fontSize:12,color:'var(--muted)',marginBottom:20}}>These colors appear on staff digital cards (accents, icons, highlights)</div>
-        <div style={{display:'flex',gap:40,alignItems:'flex-end',flexWrap:'wrap'}}>
-          {[['primary_color','Primary Color'],['secondary_color','Secondary Color']].map(([key, label]) => (
-            <div key={key}>
-              <label style={lbl}>{label}</label>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <input type="color" value={form[key]}
-                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
-                  style={{width:44,height:40,borderRadius:8,border:'none',cursor:'pointer',background:'none'}}/>
-                <input style={{...inp, width:110}} value={form[key]}
-                  onChange={e => setForm(f => ({...f, [key]: e.target.value}))}
-                  onFocus={e => e.target.style.borderColor='var(--red)'}
-                  onBlur={e => e.target.style.borderColor='var(--border)'}/>
-              </div>
-            </div>
-          ))}
-          <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
-            <div style={{width:32,height:32,borderRadius:'50%',background:form.primary_color,boxShadow:`0 0 10px ${form.primary_color}66`}}/>
-            <div style={{width:32,height:32,borderRadius:'50%',background:form.secondary_color,boxShadow:`0 0 10px ${form.secondary_color}66`}}/>
-            <span style={{fontSize:12,color:'var(--muted)'}}>Preview</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-/* ─── Signup Page ────────────────────────────────────────────────────── */
-function Signup() {
-  const [step, setStep] = useState(1)       // 1=auth, 2=company, 3=done
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
-  const [pass2, setPass2] = useState('')
-  const [form, setForm] = useState({ name: '', slug: '', industry: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-
-  // Step 1: Create auth user
-  const handleAuth = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
-    if (pass !== pass2) { setError('Passwords do not match'); return }
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({ email: email.trim(), password: pass })
-    if (error) { setError(error.message); setLoading(false); return }
-    setStep(2)
-    setLoading(false)
-  }
-
-  // Step 2: Create org + super_admin + trial subscription
-  const handleCompany = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (!form.name.trim()) { setError('Company name is required'); return }
-    if (!form.slug.trim()) { setError('URL slug is required'); return }
-    setLoading(true)
-    try {
-      // Get the newly created user session
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Session not found — please try signing in')
-
-      const userId = session.user.id
-
-      // Check slug is unique
-      const { data: existing } = await supabase
-        .from('organizations').select('id').eq('slug', form.slug.trim()).maybeSingle()
-      if (existing) { setError('That URL slug is already taken. Try a different one.'); setLoading(false); return }
-
-      // Create org
-      const orgId = crypto.randomUUID()
-      const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString()
-
-      const { error: orgErr } = await supabaseAdmin.from('organizations').insert({
-        id: orgId,
-        name: form.name.trim(),
-        slug: form.slug.trim(),
-        industry: form.industry.trim() || null,
-        primary_color: '#E8001D',
-        secondary_color: '#C9973A',
-        is_active: true,
-      })
-      if (orgErr) throw orgErr
-
-      // Create super_admin record
-      const { error: saErr } = await supabaseAdmin.from('super_admins').insert({
-        user_id: userId,
-        org_id: orgId,
-      })
-      if (saErr) throw saErr
-
-      // Create trial subscription (14 days, 10 staff)
-      const { error: subErr } = await supabaseAdmin.from('subscriptions').insert({
-        org_id: orgId,
-        plan: 'trial',
-        status: 'active',
-        staff_limit: 10,
-        trial_ends_at: trialEnds,
-      })
-      if (subErr) throw subErr
-
-      setStep(3)
-    } catch(e) {
-      setError(e.message || 'Setup failed — please try again')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const StepIndicator = () => (
-    <div className="signup-steps">
-      {[1,2,3].map((s, i) => (
-        <>
-          <div key={s} className={`signup-step ${step === s ? 'active' : step > s ? 'done' : ''}`}>
-            {step > s ? '✓' : s}
-          </div>
-          {i < 2 && <div className="signup-step-line"/>}
-        </>
-      ))}
-    </div>
-  )
-
-  return (
-    <div className="signup-wrap">
-      <div className="signup-card">
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:3}}>
-            <span style={{color:'var(--red)'}}>Card</span>Sync
-          </div>
-          <button
-            onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t) }}
-            style={{
-              width:32,height:32,borderRadius:8,border:'1px solid var(--border)',
-              background:'transparent',color:'var(--muted)',cursor:'pointer',
-              display:'flex',alignItems:'center',justifyContent:'center'
-            }}
-          >
-            {theme === 'dark'
-              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-            }
-          </button>
-        </div>
-
-        <StepIndicator/>
+        <div className="login-title">Set up your company</div>
+        <div className="login-desc">You'll be the Super Admin for your organisation. You can invite team members later.</div>
 
         {error && <div className="error-msg">{error}</div>}
-
-        {/* ── Step 1: Auth ── */}
-        {step === 1 && (
-          <>
-            <div style={{marginBottom:4,fontSize:18,fontWeight:700,color:'var(--text)'}}>Create your account</div>
-            <div style={{fontSize:13,color:'var(--muted)',marginBottom:24}}>Start your 14-day free trial. No credit card required.</div>
-            <form onSubmit={handleAuth}>
-              <label className="login-label">Work Email</label>
-              <input className="login-input" type="email" value={email}
-                onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus/>
-              <label className="login-label">Password</label>
-              <input className="login-input" type="password" value={pass}
-                onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters"/>
-              <label className="login-label">Confirm Password</label>
-              <input className="login-input" type="password" value={pass2}
-                onChange={e => setPass2(e.target.value)} placeholder="Repeat password"/>
-              <button className="login-btn" type="submit" disabled={loading}>
-                {loading ? 'Creating account...' : 'Continue →'}
-              </button>
-            </form>
-            <div style={{textAlign:'center',marginTop:16,fontSize:13,color:'var(--muted)'}}>
-              Already have an account?{' '}
-              <a href="/admin/" style={{color:'var(--red)',textDecoration:'none'}}>Sign in</a>
-            </div>
-          </>
-        )}
-
-        {/* ── Step 2: Company Info ── */}
-        {step === 2 && (
-          <>
-            <div style={{marginBottom:4,fontSize:18,fontWeight:700,color:'var(--text)'}}>Set up your organization</div>
-            <div style={{fontSize:13,color:'var(--muted)',marginBottom:24}}>This will be used on your staff digital cards.</div>
-            <form onSubmit={handleCompany}>
-              <label className="login-label">Company Name *</label>
-              <input className="login-input" value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value, slug: slugify(e.target.value) }))}
-                placeholder="e.g. Acme Sdn Bhd" autoFocus/>
-              <label className="login-label">URL Slug *</label>
-              <div style={{position:'relative',marginBottom:16}}>
-                <input
-                  style={{
-                    width:'100%', background:'rgba(255,255,255,0.04)', border:'1px solid var(--border)',
-                    borderRadius:10, padding:'12px 16px', color:'var(--text)',
-                    fontFamily:"'Outfit',sans-serif", fontSize:14, outline:'none',
-                    paddingLeft:0
-                  }}
-                  value={form.slug}
-                  onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))}
-                  placeholder="acme"
-                />
-                <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>
-                  Cards will be at: <span style={{color:'var(--red)'}}>yourdomain.com/{form.slug || 'your-slug'}/staff-name/</span>
-                </div>
-              </div>
-              <label className="login-label">Industry</label>
-              <input className="login-input" value={form.industry}
-                onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                placeholder="e.g. Technology, Healthcare, Finance"/>
-              <button className="login-btn" type="submit" disabled={loading}>
-                {loading ? 'Setting up...' : 'Create Organization →'}
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* ── Step 3: Success ── */}
-        {step === 3 && (
-          <div style={{textAlign:'center',padding:'20px 0'}}>
-            <div style={{fontSize:48,marginBottom:16}}>🎉</div>
-            <div style={{fontSize:20,fontWeight:700,color:'var(--text)',marginBottom:8}}>You're all set!</div>
-            <div style={{fontSize:14,color:'var(--muted)',lineHeight:1.6,marginBottom:28}}>
-              Your organization has been created with a <strong style={{color:'var(--gold)'}}>14-day free trial</strong>.
-              Head to your dashboard to start adding staff.
-            </div>
-            <button className="login-btn" onClick={() => window.location.href = '/admin/'}>
-              Go to Dashboard →
-            </button>
-          </div>
-        )}
+        <form onSubmit={handleSetup}>
+          <label className="login-label">Company Name *</label>
+          <input className="login-input" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Acme Corporation" autoFocus/>
+          {slug && (
+            <div className="org-slug-preview">Your URL slug: <span>{slug}</span></div>
+          )}
+          <label className="login-label">Industry</label>
+          <select className="login-input" value={industry} onChange={e => setIndustry(e.target.value)} style={{cursor:'pointer'}}>
+            <option value="">— Select industry —</option>
+            <option>Technology</option>
+            <option>Telecommunications</option>
+            <option>Finance & Banking</option>
+            <option>Healthcare</option>
+            <option>Education</option>
+            <option>Manufacturing</option>
+            <option>Retail</option>
+            <option>Real Estate</option>
+            <option>Consulting</option>
+            <option>Government</option>
+            <option>Other</option>
+          </select>
+          <label className="login-label">Website (optional)</label>
+          <input className="login-input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" type="url"/>
+          <button className="login-btn" type="submit" disabled={saving}>
+            {saving ? 'Setting up...' : 'Complete Setup →'}
+          </button>
+        </form>
+        <div className="signup-link">
+          <a onClick={() => supabase.auth.signOut()}>Sign out and start over</a>
+        </div>
       </div>
     </div>
   )
@@ -2323,160 +1141,77 @@ function Signup() {
 export default function App() {
   const [session, setSession] = useState(null)
   const [checking, setChecking] = useState(true)
-  const [needsPassword, setNeedsPassword] = useState(false)
-  const [passwordMode, setPasswordMode] = useState('invite')
-  const [userRole, setUserRole] = useState(null)      // 'super_admin' | 'admin' | 'viewer'
-  const [orgId, setOrgId] = useState(null)
-  const [org, setOrg] = useState(null)
-  const [subscription, setSubscription] = useState(null)
-  const [viewerProfile, setViewerProfile] = useState(null)
+  const [authMode, setAuthMode] = useState('login') // 'login' | 'signup'
+  const [userOrg, setUserOrg] = useState(null)      // org object once resolved
+  const [orgChecking, setOrgChecking] = useState(false)
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
-
-  // Apply theme to document
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 
   useEffect(() => {
-    const hash = window.location.hash
-    const isInvite = hash.includes('type=invite')
-    const isRecovery = hash.includes('type=recovery')
-
-    if (isInvite || isRecovery) {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          setSession(data.session)
-          setPasswordMode(isInvite ? 'invite' : 'recovery')
-          setNeedsPassword(true)
-          setChecking(false)
-          window.history.replaceState(null, '', window.location.pathname)
-        } else {
-          setChecking(false)
-        }
-      })
-      return
-    }
-
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setSession(data.session)
-        detectRole(data.session.user.id)
-      } else {
-        setChecking(false)
-      }
+      setSession(data.session); setChecking(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
       setSession(s)
-      if (s) detectRole(s.user.id)
-      else { setUserRole(null); setViewerProfile(null); setOrgId(null); setOrg(null); setSubscription(null); setChecking(false) }
+      if (!s) setUserOrg(null) // clear org on logout
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  const fetchOrg = async (id) => {
-    const [orgRes, subRes] = await Promise.all([
-      supabase.from('organizations').select('*').eq('id', id).single(),
-      supabase.from('subscriptions').select('*').eq('org_id', id).maybeSingle()
-    ])
-    if (orgRes.data) setOrg(orgRes.data)
-    if (subRes.data) setSubscription(subRes.data)
-  }
+  // Whenever we get a session, look up the user's organisation
+  useEffect(() => {
+    if (!session) return
+    loadUserOrg(session.user.id)
+  }, [session?.user?.id])
 
-  const detectRole = async (userId) => {
-    setChecking(true)
-    setUserRole(null)
-    setViewerProfile(null)
-    setOrgId(null)
-    setSubscription(null)
+  const loadUserOrg = async (userId) => {
+    setOrgChecking(true)
+    // 1. Check super_admins
+    const { data: sa } = await supabase
+      .from('super_admins')
+      .select('org_id, organizations(*)')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (sa?.organizations) { setUserOrg(sa.organizations); setOrgChecking(false); return }
 
-    // Check super_admins first
-    const { data: superRecord } = await supabase
-      .from('super_admins').select('id, org_id').eq('user_id', userId).maybeSingle()
-    if (superRecord) {
-      setUserRole('super_admin')
-      setOrgId(superRecord.org_id)
-      await fetchOrg(superRecord.org_id)
-      setChecking(false)
-      return
-    }
-    // Check hr_admins (admin)
-    const { data: adminRecord } = await supabase
-      .from('hr_admins').select('id, org_id').eq('user_id', userId).maybeSingle()
-    if (adminRecord) {
-      setUserRole('admin')
-      setOrgId(adminRecord.org_id)
-      await fetchOrg(adminRecord.org_id)
-      setChecking(false)
-      return
-    }
-    // Check org_users (viewer)
-    const { data: viewerRecord } = await supabase
-      .from('org_users').select('dept_id, can_view_all, org_id').eq('user_id', userId).maybeSingle()
-    if (viewerRecord) {
-      setUserRole('viewer')
-      setOrgId(viewerRecord.org_id)
-      await fetchOrg(viewerRecord.org_id)
-      setViewerProfile({ dept_id: viewerRecord.dept_id, can_view_all: viewerRecord.can_view_all })
-      setChecking(false)
-      return
-    }
-    setUserRole('viewer')
-    setChecking(false)
+    // 2. Check hr_admins
+    const { data: hr } = await supabase
+      .from('hr_admins')
+      .select('org_id, organizations(*)')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (hr?.organizations) { setUserOrg(hr.organizations); setOrgChecking(false); return }
+
+    // 3. No org found — will prompt org setup
+    setUserOrg(null)
+    setOrgChecking(false)
   }
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type, id: Date.now() })
   }
 
-  if (checking) return null
+  // Still resolving session or org
+  if (checking || orgChecking) return null
 
-  // Route to signup page if on /signup/
-  if (window.location.pathname.startsWith('/signup')) return (
-    <>
-      <style>{css}</style>
-      <Signup/>
-    </>
-  )
-
+  // Not logged in → show login or signup
   if (!session) return (
     <>
       <style>{css}</style>
-      <Login onLogin={() => {}}/>
+      {authMode === 'signup'
+        ? <SignUp onBack={() => setAuthMode('login')} />
+        : <Login onSignUp={() => setAuthMode('signup')} />
+      }
     </>
   )
 
-  if (needsPassword) return (
+  // Logged in but no org → run org setup
+  if (!userOrg) return (
     <>
       <style>{css}</style>
-      <SetPassword mode={passwordMode} onDone={() => {
-        setNeedsPassword(false)
-        detectRole(session.user.id)
-      }}/>
+      <OrgSetup userId={session.user.id} onComplete={(org) => setUserOrg(org)} />
     </>
   )
-
-  const isSuperAdmin = userRole === 'super_admin'
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin'
-  const ORG_ID = orgId
-  const roleBadgeColor = isSuperAdmin ? 'var(--gold)' : isAdmin ? 'var(--red)' : 'var(--muted)'
-  const roleLabel = isSuperAdmin ? 'Super Admin' : isAdmin ? 'Admin' : 'Viewer'
-
-  // Subscription helpers
-  const subStatus = subscription?.status || 'active'
-  const subPlan = subscription?.plan || 'trial'
-  const staffLimit = subscription?.staff_limit || 10
-  const isTrialExpired = subPlan === 'trial' && subscription?.trial_ends_at
-    && new Date() > new Date(subscription.trial_ends_at)
-  const isExpired = subStatus === 'expired' || subStatus === 'suspended' || isTrialExpired
-  const isReadOnly = isExpired  // expired = read-only dashboard, card URLs blocked
-  const trialDaysLeft = subscription?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at) - new Date()) / 86400000))
-    : null
 
   return (
     <>
@@ -2484,12 +1219,8 @@ export default function App() {
       <div className="layout">
         {/* Sidebar */}
         <aside className="sidebar">
-          <div className="sidebar-logo">
-            {org?.logo_url
-              ? <img src={org.logo_url} alt={org.name} style={{maxWidth:140,maxHeight:36,objectFit:'contain',display:'block'}}/>
-              : <><span>RED</span>tone</>
-            }
-          </div>
+          <div className="sidebar-logo">Digital Cards <span>DIPE</span></div>
+          <div className="sidebar-label" style={{fontSize:9,marginBottom:20,opacity:0.6}}>{userOrg.name}</div>
           <div className="sidebar-label">Management</div>
           <div className={`nav-item ${page==='staff' ? 'active' : ''}`} onClick={() => setPage('staff')}>
             {Icon.users} Staff
@@ -2497,54 +1228,7 @@ export default function App() {
           <div className={`nav-item ${page==='dashboard' ? 'active' : ''}`} onClick={() => setPage('dashboard')}>
             {Icon.dashboard} Dashboard
           </div>
-          {isAdmin && (
-            <div className={`nav-item ${page==='users' ? 'active' : ''}`} onClick={() => setPage('users')}>
-              {Icon.shieldUser} User Access
-            </div>
-          )}
-          {isSuperAdmin && (
-            <div className={`nav-item ${page==='setup' ? 'active' : ''}`} onClick={() => setPage('setup')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-              </svg>
-              Setup
-            </div>
-          )}
           <div className="sidebar-bottom">
-            <div style={{marginBottom:8,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <span style={{
-                display:'inline-block', padding:'2px 8px', borderRadius:6,
-                fontSize:10, fontWeight:600, letterSpacing:'1px', textTransform:'uppercase',
-                background: isSuperAdmin ? 'rgba(201,151,58,0.12)' : isAdmin ? 'rgba(232,0,29,0.12)' : 'rgba(255,255,255,0.06)',
-                color: roleBadgeColor,
-                border: `1px solid ${isSuperAdmin ? 'rgba(201,151,58,0.25)' : isAdmin ? 'rgba(232,0,29,0.25)' : 'rgba(255,255,255,0.12)'}`,
-              }}>{roleLabel}</span>
-              <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {theme === 'dark'
-                  ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                  : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                }
-              </button>
-            </div>
-            {subPlan === 'trial' && !isExpired && trialDaysLeft !== null && (
-              <div style={{
-                background:'rgba(201,151,58,0.1)', border:'1px solid rgba(201,151,58,0.25)',
-                borderRadius:8, padding:'8px 10px', marginBottom:8, fontSize:11, color:'var(--gold)',
-                lineHeight:1.4
-              }}>
-                ⏳ Trial: <strong>{trialDaysLeft} day{trialDaysLeft !== 1 ? 's' : ''}</strong> remaining
-              </div>
-            )}
-            {isExpired && (
-              <div style={{
-                background:'var(--red-dim)', border:'1px solid rgba(232,0,29,0.25)',
-                borderRadius:8, padding:'8px 10px', marginBottom:8, fontSize:11, color:'var(--red)',
-                lineHeight:1.4
-              }}>
-                ⚠️ Trial expired — read-only mode.<br/>Contact us to upgrade.
-              </div>
-            )}
             <div className="user-badge">
               <div className="user-dot"/>
               <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -2557,7 +1241,7 @@ export default function App() {
 
         {/* Main */}
         <main className="main">
-          {page === 'staff' && <StaffPage showToast={showToast} userRole={userRole} isAdmin={isAdmin} orgId={ORG_ID} viewerProfile={viewerProfile} isReadOnly={isReadOnly} staffLimit={staffLimit}/>}
+          {page === 'staff' && <StaffPage showToast={showToast} orgId={userOrg.id} orgName={userOrg.name}/>}
           {page === 'dashboard' && (
             <div>
               <div className="page-title" style={{marginBottom:8}}>Dashboard</div>
@@ -2568,8 +1252,6 @@ export default function App() {
               </div>
             </div>
           )}
-          {page === 'users' && isAdmin && <UsersPage showToast={showToast} isSuperAdmin={isSuperAdmin} orgId={ORG_ID}/>}
-          {page === 'setup' && isSuperAdmin && <OrgPage org={org} setOrg={setOrg} orgId={ORG_ID} showToast={showToast}/>}
         </main>
       </div>
 
