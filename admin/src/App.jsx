@@ -2274,6 +2274,14 @@ function Signup() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
+  // Redirect to dashboard as soon as setup completes — useEffect is stable across re-renders
+  useEffect(() => {
+    if (step === 3) {
+      const t = setTimeout(() => { window.location.href = '/admin/' }, 1500)
+      return () => clearTimeout(t)
+    }
+  }, [step])
+
   const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   // Step 1: Create auth user
@@ -2490,7 +2498,6 @@ function Signup() {
               Redirecting you to the dashboard…
             </div>
             <div style={{fontSize:12,color:'var(--muted)'}}>Please wait…</div>
-            {(() => { setTimeout(() => { window.location.href = '/admin/' }, 2000); return null })()}
           </div>
         )}
       </div>
