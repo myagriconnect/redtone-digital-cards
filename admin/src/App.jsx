@@ -752,9 +752,9 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId }) 
 
       let error
       if (isEdit) {
-        ;({ error } = await supabase.from('staff').update(payload).eq('id', staff.id))
+        ;({ error } = await supabaseAdmin.from('staff').update(payload).eq('id', staff.id))
       } else {
-        ;({ error } = await supabase.from('staff').insert(payload))
+        ;({ error } = await supabaseAdmin.from('staff').insert(payload))
       }
 
       if (error) throw error
@@ -855,7 +855,7 @@ function StaffPage({ showToast, orgId, orgName }) {
 
   const handleDelete = async (s) => {
     if (!confirm(`Remove ${s.full_name}?`)) return
-    const { error } = await supabase.from('staff').delete().eq('id', s.id)
+    const { error } = await supabaseAdmin.from('staff').delete().eq('id', s.id)
     if (error) { showToast('Delete failed', 'error'); return }
     showToast(`${s.full_name} removed`, 'success')
     load()
