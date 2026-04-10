@@ -211,6 +211,17 @@ const css = `
   }
   .org-slug-preview span { color: var(--red); }
 
+  /* ── Custom select dark theme ── */
+  .login-input option,
+  .form-select option {
+    background: #0f1824;
+    color: #f0f2f7;
+  }
+  /* Chromium-based: style the select picker panel */
+  select.login-input {
+    color-scheme: dark;
+  }
+
   /* ── Layout ── */
   .layout { display: flex; min-height: 100vh; }
   .sidebar {
