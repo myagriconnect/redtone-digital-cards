@@ -2297,9 +2297,24 @@ function Signup() {
                 </div>
               </div>
               <label className="login-label">Industry</label>
-              <input className="login-input" value={form.industry}
+              <select
+                className="login-input"
+                value={form.industry}
                 onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                placeholder="e.g. Technology, Healthcare, Finance"/>
+                style={{
+                  background:'#0f1824', color:'var(--text)',
+                  appearance:'none', WebkitAppearance:'none',
+                  backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                  backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center',
+                  paddingRight:36, cursor:'pointer'
+                }}
+              >
+                <option value="" style={{background:'#0f1824',color:'#8892a4'}}>Select industry</option>
+                {['Technology','Telecommunications','Finance and Banking','Healthcare','Education',
+                  'Manufacturing','Retail','Real Estate','Consulting','Government','Other'].map(i => (
+                  <option key={i} value={i} style={{background:'#0f1824',color:'#f0f2f7'}}>{i}</option>
+                ))}
+              </select>
               <button className="login-btn" type="submit" disabled={loading}>
                 {loading ? 'Setting up...' : 'Create Organization →'}
               </button>
@@ -2307,18 +2322,17 @@ function Signup() {
           </>
         )}
 
-        {/* ── Step 3: Success ── */}
+        {/* ── Step 3: Success + auto-redirect ── */}
         {step === 3 && (
           <div style={{textAlign:'center',padding:'20px 0'}}>
             <div style={{fontSize:48,marginBottom:16}}>🎉</div>
             <div style={{fontSize:20,fontWeight:700,color:'var(--text)',marginBottom:8}}>You're all set!</div>
             <div style={{fontSize:14,color:'var(--muted)',lineHeight:1.6,marginBottom:28}}>
               Your organization has been created with a <strong style={{color:'var(--gold)'}}>14-day free trial</strong>.
-              Head to your dashboard to start adding staff.
+              Redirecting you to the dashboard…
             </div>
-            <button className="login-btn" onClick={() => window.location.href = '/admin/'}>
-              Go to Dashboard →
-            </button>
+            <div style={{fontSize:12,color:'var(--muted)'}}>Please wait…</div>
+            {(() => { setTimeout(() => { window.location.href = '/admin/' }, 2000); return null })()}
           </div>
         )}
       </div>
