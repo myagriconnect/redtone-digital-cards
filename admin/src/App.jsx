@@ -665,6 +665,25 @@ const css = `
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+
+  /* ── Signup / Org-Setup Wizard ── */
+  .login-card-wide { width: 460px; }
+  .wizard-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 32px; }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .step-circle { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--muted); background: transparent; transition: all 0.2s; }
+  .step-circle.active { border-color: var(--red); background: var(--red); color: white; box-shadow: 0 0 16px var(--red-glow); }
+  .step-circle.done { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+  .step-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .step-label.active { color: var(--text); }
+  .step-connector { width: 48px; height: 2px; background: rgba(255,255,255,0.08); margin: 0 4px; margin-bottom: 22px; flex-shrink: 0; }
+  .step-connector.done { background: var(--green); opacity: 0.4; }
+  .login-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+  .login-desc { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  .signup-link { text-align: center; margin-top: 20px; font-size: 13px; color: var(--muted); }
+  .signup-link a { color: var(--red); text-decoration: none; font-weight: 500; cursor: pointer; }
+  .signup-link a:hover { text-decoration: underline; }
+  .org-slug-preview { font-size: 11px; color: var(--muted); margin-top: -10px; margin-bottom: 16px; padding: 0 4px; }
+  .org-slug-preview span { color: var(--red); }
   @media (max-width: 768px) {
     .sidebar { display: none; }
     .main { margin-left: 0; padding: 20px; }
@@ -838,7 +857,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
     }
     // Staff limit check for new staff only
     if (!isEdit && staffLimit) {
-      const { count } = await supabase.from('staff').select('id', { count: 'exact', head: true }).eq('org_id', ORG_ID).eq('is_active', true)
+      const { count } = await supabaseAdmin.from('staff').select('id', { count: 'exact', head: true }).eq('org_id', ORG_ID).eq('is_active', true)
       if (count >= staffLimit) {
         showToast(`Staff limit reached (${staffLimit}). Upgrade your plan to add more.`, 'error'); return
       }
@@ -851,7 +870,7 @@ function StaffModal({ staff, departments, onClose, onSaved, showToast, orgId: OR
       if (photoFile) {
         const ext = photoFile.name.split('.').pop()
         const filename = `${form.card_slug}.${ext}`
-        const { error: upErr } = await supabase.storage
+        const { error: upErr } = await supabaseAdmin.storage
           .from('staff-photos')
           .upload(filename, photoFile, { upsert: true })
         if (upErr) {
@@ -870,7 +889,7 @@ if (form.department_name.trim()) {
   if (existing) {
     resolvedDeptId = existing.id
   } else {
-    const { data: newDept } = await supabase
+    const { data: newDept } = await supabaseAdmin
       .from('departments')
       .insert({ name: form.department_name.trim(), org_id: ORG_ID })
       .select()
@@ -887,9 +906,9 @@ if (form.department_name.trim()) {
       }
       let error
       if (isEdit) {
-        ;({ error } = await supabase.from('staff').update(payload).eq('id', staff.id))
+        ;({ error } = await supabaseAdmin.from('staff').update(payload).eq('id', staff.id))
       } else {
-        ;({ error } = await supabase.from('staff').insert(payload))
+        ;({ error } = await supabaseAdmin.from('staff').insert(payload))
       }
 
       if (error) throw error
@@ -1074,7 +1093,7 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
     const cached = deptCache.find(d => d.name.toLowerCase() === lower)
     if (cached) return cached.id
     // 2. Case-insensitive lookup directly in DB (catches mismatches the cache might miss)
-    const { data: found } = await supabase
+    const { data: found } = await supabaseAdmin
       .from('departments')
       .select('id, name')
       .eq('org_id', ORG_ID)
@@ -1082,14 +1101,14 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
       .maybeSingle()
     if (found) { deptCache.push(found); return found.id }
     // 3. Insert new department
-    const { data: created, error: insertErr } = await supabase
+    const { data: created, error: insertErr } = await supabaseAdmin
       .from('departments')
       .insert({ name: deptName.trim(), org_id: ORG_ID })
       .select().single()
     if (created) { deptCache.push(created); return created.id }
     // 4. If insert failed (e.g. unique constraint race), try fetching once more
     if (insertErr) {
-      const { data: retry } = await supabase
+      const { data: retry } = await supabaseAdmin
         .from('departments')
         .select('id, name')
         .eq('org_id', ORG_ID)
@@ -1128,11 +1147,11 @@ function CSVImportModal({ existingStaff, departments, onClose, onImported, showT
         if (row.action === 'overwrite') {
           const match = existingStaff.find(s => s.email?.toLowerCase() === row.email)
           if (match) {
-            const { error } = await supabase.from('staff').update(payload).eq('id', match.id)
+            const { error } = await supabaseAdmin.from('staff').update(payload).eq('id', match.id)
             if (error) throw error
           }
         } else {
-          const { error } = await supabase.from('staff').insert(payload)
+          const { error } = await supabaseAdmin.from('staff').insert(payload)
           if (error) throw error
         }
         success++
@@ -1281,7 +1300,7 @@ function StaffPage({ showToast, userRole, isAdmin, orgId, viewerProfile, isReadO
 
   const handleDelete = async (s) => {
     if (!confirm(`Remove ${s.full_name}?`)) return
-    const { error } = await supabase.from('staff').delete().eq('id', s.id)
+    const { error } = await supabaseAdmin.from('staff').delete().eq('id', s.id)
     if (error) { showToast('Delete failed', 'error'); return }
     showToast(`${s.full_name} removed`, 'success')
     load()
@@ -1812,7 +1831,7 @@ function SetPassword({ onDone, mode }) {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
         <div className="login-subtitle">{isInvite ? 'Set Your Password' : 'Reset Your Password'}</div>
         <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
           {isInvite ? 'Welcome! Please set a password to complete your account setup.' : 'Enter a new password for your account.'}
@@ -1833,7 +1852,7 @@ function SetPassword({ onDone, mode }) {
 }
 
 /* ─── Login ──────────────────────────────────────────────────────────── */
-function Login({ onLogin }) {
+function Login({ onLogin, onSignUp }) {
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1862,7 +1881,7 @@ function Login({ onLogin }) {
   if (view === 'forgot_sent') return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
         <div className="login-subtitle">Check Your Email</div>
         <div style={{textAlign:'center',marginBottom:24}}>
           <div style={{fontSize:40,marginBottom:16}}>📬</div>
@@ -1879,7 +1898,7 @@ function Login({ onLogin }) {
   if (view === 'forgot') return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
         <div className="login-subtitle">Reset Password</div>
         <div style={{fontSize:13,color:'var(--muted)',marginBottom:24,textAlign:'center',lineHeight:1.6}}>
           Enter your email and we'll send you a reset link.
@@ -1901,8 +1920,8 @@ function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo"><span>RED</span>tone Admin</div>
-        <div className="login-subtitle">Digital Cards Portal</div>
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleLogin}>
           <label className="login-label">Email</label>
@@ -1917,10 +1936,142 @@ function Login({ onLogin }) {
           onMouseLeave={e => e.currentTarget.style.color='var(--muted)'}>
           Forgot password?
         </button>
+        {onSignUp && (
+          <div className="signup-link" style={{marginTop:8}}>
+            Don't have an account? <a onClick={onSignUp}>Create one →</a>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+/* ─── Sign Up ────────────────────────────────────────────────────────── */
+function SignUp({ onBack }) {
+  const [email, setEmail] = useState('')
+  const [pass, setPass] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const handleSignUp = async (e) => {
+    e.preventDefault()
+    if (pass !== confirm) { setError('Passwords do not match'); return }
+    if (pass.length < 8) { setError('Password must be at least 8 characters'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signUp({ email, password: pass })
+    if (error) { setError(error.message); setLoading(false) }
+  }
+  return (
+    <div className="login-wrap">
+      <div className="login-card login-card-wide">
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
+        <div className="wizard-steps">
+          <div className="step-item"><div className="step-circle active">1</div><div className="step-label active">Account</div></div>
+          <div className="step-connector"/>
+          <div className="step-item"><div className="step-circle">2</div><div className="step-label">Company</div></div>
+          <div className="step-connector"/>
+          <div className="step-item"><div className="step-circle">3</div><div className="step-label">Done</div></div>
+        </div>
+        <div className="login-title">Create your account</div>
+        <div className="login-desc">Start your free trial. No credit card required.</div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSignUp}>
+          <label className="login-label">Work Email</label>
+          <input className="login-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus/>
+          <label className="login-label">Password</label>
+          <input className="login-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Min. 8 characters"/>
+          <label className="login-label">Confirm Password</label>
+          <input className="login-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password"/>
+          <button className="login-btn" type="submit" disabled={loading}>{loading ? 'Creating account...' : 'Continue →'}</button>
+        </form>
+        <div className="signup-link">Already have an account? <a onClick={onBack}>Sign in</a></div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Org Setup ──────────────────────────────────────────────────────── */
+function OrgSetup({ userId, onComplete }) {
+  const [companyName, setCompanyName] = useState('')
+  const [industry, setIndustry] = useState('')
+  const [website, setWebsite] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const slugify = (n) => n.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  const slug = slugify(companyName)
+  const handleSetup = async (e) => {
+    e.preventDefault()
+    if (!companyName.trim()) { setError('Company name is required'); return }
+    if (slug.length < 2) { setError('Company name is too short'); return }
+    setSaving(true); setError('')
+    try {
+      const { data: existing } = await supabase.from('organizations').select('id').eq('slug', slug).maybeSingle()
+      if (existing) { setError('That name is already taken.'); setSaving(false); return }
+      const { data: org, error: orgErr } = await supabaseAdmin
+        .from('organizations')
+        .insert({ name: companyName.trim(), slug, industry: industry || null, website: website || null, primary_color: '#E8001D', secondary_color: '#C9973A', is_active: true })
+        .select().single()
+      if (orgErr) throw orgErr
+      const { error: saErr } = await supabaseAdmin.from('super_admins').insert({ user_id: userId, org_id: org.id })
+      if (saErr) throw saErr
+      // Also create hr_admin record so the user can manage staff in their org
+      const { error: hrErr } = await supabaseAdmin.from('hr_admins').insert({ user_id: userId, org_id: org.id })
+      if (hrErr) throw hrErr
+      const trialEnds = new Date(Date.now() + 14 * 86400000).toISOString()
+      await supabaseAdmin.from('subscriptions').insert({ org_id: org.id, plan: 'trial', status: 'active', staff_limit: 10, trial_ends_at: trialEnds })
+      onComplete(org)
+    } catch (e) { setError(e.message || 'Setup failed.'); setSaving(false) }
+  }
+  return (
+    <div className="login-wrap">
+      <div className="login-card login-card-wide">
+        <div className="login-logo">Digital Cards <span>by DIPE</span></div>
+        <div className="login-subtitle">Digital Business Card Platform</div>
+        <div className="wizard-steps">
+          <div className="step-item"><div className="step-circle done">✓</div><div className="step-label">Account</div></div>
+          <div className="step-connector done"/>
+          <div className="step-item"><div className="step-circle active">2</div><div className="step-label active">Company</div></div>
+          <div className="step-connector"/>
+          <div className="step-item"><div className="step-circle">3</div><div className="step-label">Done</div></div>
+        </div>
+        <div className="login-title">Set up your company</div>
+        <div className="login-desc">You will be the Super Admin and can invite team members after setup.</div>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSetup}>
+          <label className="login-label">Company Name *</label>
+          <input className="login-input" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="e.g. Acme Corporation" autoFocus/>
+          {slug && <div className="org-slug-preview">Your URL slug: <span>{slug}</span></div>}
+          <label className="login-label">Industry</label>
+          <select className="login-input" value={industry} onChange={e => setIndustry(e.target.value)} style={{
+            cursor:'pointer', colorScheme:'dark',
+            background:'#0f1824', color:'var(--text)',
+            appearance:'none', WebkitAppearance:'none',
+            backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+            backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center', paddingRight:36
+          }}>
+            <option value="" style={{background:'#0f1824',color:'#8892a4'}}>Select industry</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Technology</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Telecommunications</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Finance and Banking</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Healthcare</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Education</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Manufacturing</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Retail</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Real Estate</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Consulting</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Government</option>
+            <option style={{background:'#0f1824',color:'#f0f2f7'}}>Other</option>
+          </select>
+          <label className="login-label">Website (optional)</label>
+          <input className="login-input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://yourcompany.com" type="url"/>
+          <button className="login-btn" type="submit" disabled={saving}>{saving ? 'Setting up...' : 'Complete Setup'}</button>
+        </form>
+        <div className="signup-link"><a onClick={() => supabase.auth.signOut()}>Sign out and start over</a></div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── OrgPage (Setup) ────────────────────────────────────────────────── */
 function OrgPage({ org, setOrg, orgId, showToast }) {
   const [form, setForm] = useState({
@@ -2302,18 +2453,25 @@ function Signup() {
                 value={form.industry}
                 onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
                 style={{
+                  cursor:'pointer', colorScheme:'dark',
                   background:'#0f1824', color:'var(--text)',
                   appearance:'none', WebkitAppearance:'none',
                   backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
-                  backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center',
-                  paddingRight:36, cursor:'pointer'
+                  backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center', paddingRight:36
                 }}
               >
                 <option value="" style={{background:'#0f1824',color:'#8892a4'}}>Select industry</option>
-                {['Technology','Telecommunications','Finance and Banking','Healthcare','Education',
-                  'Manufacturing','Retail','Real Estate','Consulting','Government','Other'].map(i => (
-                  <option key={i} value={i} style={{background:'#0f1824',color:'#f0f2f7'}}>{i}</option>
-                ))}
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Technology</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Telecommunications</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Finance and Banking</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Healthcare</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Education</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Manufacturing</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Retail</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Real Estate</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Consulting</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Government</option>
+                <option style={{background:'#0f1824',color:'#f0f2f7'}}>Other</option>
               </select>
               <button className="login-btn" type="submit" disabled={loading}>
                 {loading ? 'Setting up...' : 'Create Organization →'}
@@ -2351,6 +2509,7 @@ export default function App() {
   const [org, setOrg] = useState(null)
   const [subscription, setSubscription] = useState(null)
   const [viewerProfile, setViewerProfile] = useState(null)
+  const [authMode, setAuthMode] = useState('login')
   const [page, setPage] = useState('staff')
   const [toast, setToast] = useState(null)
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark')
@@ -2456,22 +2615,28 @@ export default function App() {
 
   if (checking) return null
 
-  // Route to signup page if on /signup/
-  if (window.location.pathname.startsWith('/signup')) return (
+  // No org → show OrgSetup for new users
+  if (session && !checking && !orgId) return (
     <>
       <style>{css}</style>
-      <Signup/>
+      <OrgSetup userId={session.user.id} onComplete={(newOrg) => {
+        setOrg(newOrg); setOrgId(newOrg.id); setUserRole('super_admin')
+        detectRole(newOrg.id)
+      }}/>
     </>
   )
 
   if (!session) return (
     <>
       <style>{css}</style>
-      <Login onLogin={() => {}}/>
+      {authMode === 'signup'
+        ? <SignUp onBack={() => setAuthMode('login')}/>
+        : <Login onLogin={() => {}} onSignUp={() => setAuthMode('signup')}/>
+      }
     </>
   )
 
-  if (needsPassword) return (
+    if (needsPassword) return (
     <>
       <style>{css}</style>
       <SetPassword mode={passwordMode} onDone={() => {
@@ -2508,7 +2673,7 @@ export default function App() {
           <div className="sidebar-logo">
             {org?.logo_url
               ? <img src={org.logo_url} alt={org.name} style={{maxWidth:140,maxHeight:36,objectFit:'contain',display:'block'}}/>
-              : <><span>RED</span>tone</>
+              : <>Digital Cards <span style={{color:'var(--red)'}}>DIPE</span></>
             }
           </div>
           <div className="sidebar-label">Management</div>
