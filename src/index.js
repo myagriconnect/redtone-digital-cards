@@ -302,7 +302,7 @@ export default {
       if (!staff) return staticResponse
 
       const orgData = await sbFetch(`organizations?id=eq.${staff.org_id}&select=slug&limit=1`)
-      const orgSlug = orgData?.[0]?.slug #k
+      const orgSlug = orgData?.[0]?.slug
 
       if (!orgSlug) {
         // Serve fallback without redirect
