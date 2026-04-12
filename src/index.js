@@ -109,7 +109,7 @@ function buildCardHTML(s, org, cardURL) {
   })
 
   // NOTE: All primary-color alpha variants are defined as CSS custom properties
-  // so the client-side refresh() can update them dynamically when org changes logo/colors.
+  // so the client-side refreshOrg() can apply any live changes during the session.
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -130,7 +130,7 @@ function buildCardHTML(s, org, cardURL) {
       --card-bg:#0d1520;
       --text:#f0f2f7;
       --muted:#8892a4;
-      /* Alpha variants of primary color — all updated together by refresh() */
+      /* Alpha variants of primary color — all updated together by refreshOrg() */
       --p10:${primary}1a;
       --p12:${primary}1f;
       --p15:${primary}26;
@@ -140,9 +140,8 @@ function buildCardHTML(s, org, cardURL) {
       --p80:${primary}cc;
     }
     html,body{min-height:100vh;background:var(--dark);font-family:'Outfit',-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 50% at 50% -10%,var(--p10) 0%,transparent 60%)}
-    /* Card starts hidden — revealed by refreshOrg() after fresh branding is applied,
-       preventing any flash of stale colors from the baked-in static HTML. */
-    .card{background:var(--card-bg);border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);opacity:0;transform:translateY(16px);transition:opacity 0.3s ease,transform 0.4s cubic-bezier(.22,1,.36,1)}
+    .card{background:var(--card-bg);border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     .logo-bar{background:linear-gradient(160deg,#0d1a2e 0%,#060b16 100%);padding:18px 24px 14px;border-bottom:1px solid var(--p12)}
     .logo-bar img{height:28px;width:auto;display:block}
     .logo-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--text)}
@@ -227,17 +226,6 @@ function buildCardHTML(s, org, cardURL) {
     root.style.setProperty('--p80',p+'cc')
   }
 
-  // Reveal the card with a smooth fade+slide-up transition.
-  // Called after refreshOrg() applies fresh branding so the user
-  // never sees a flash of stale colors from the static HTML.
-  let _cardShown=false
-  function showCard(){
-    if(_cardShown)return
-    _cardShown=true
-    const c=document.querySelector('.card')
-    if(c){c.style.opacity='1';c.style.transform='translateY(0)'}
-  }
-
   // ── Refresh staff data ───────────────────────────────────────────────────────
   async function refreshStaff(){
     try{
@@ -265,9 +253,9 @@ function buildCardHTML(s, org, cardURL) {
   }
 
   // ── Refresh org branding (logo, colors, name) ────────────────────────────────
-  // Fetches latest org design from Supabase on every page load, applies it,
-  // then reveals the card — so design changes by HR show immediately without
-  // any Cloudflare rebuild.
+  // The Worker already fetches fresh org data on every request, so colors/logo
+  // are always correct on initial load. This runs as a live-update safety net
+  // in case HR makes changes while a card is already open in someone's browser.
   async function refreshOrg(){
     try{
       const [o]=await fetch(
@@ -295,8 +283,6 @@ function buildCardHTML(s, org, cardURL) {
         sm.innerHTML=o.name+(dept?' &middot; <span class="dept" id="staffDept">'+dept.textContent+'</span>':'')
       }
     }catch(_){}
-    // Always reveal the card — even if the fetch fails, show with baked-in values
-    showCard()
   }
 
   // ── vCard save ───────────────────────────────────────────────────────────────
@@ -324,12 +310,9 @@ function buildCardHTML(s, org, cardURL) {
     window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
-  // refreshStaff runs in parallel (non-blocking, does not affect card visibility)
+  // Run both refreshes on every page load — parallel, non-blocking
   refreshStaff()
-  // refreshOrg controls card visibility — card fades in after fresh branding is applied
   refreshOrg()
-  // Safety fallback: if Supabase takes >2s or fails silently, show card anyway
-  setTimeout(showCard, 2000)
 </script>
 </body>
 </html>`
@@ -340,6 +323,7 @@ export default {
     const url  = new URL(request.url)
     const path = url.pathname
 
+    // ── Static-only routes — always serve from pre-built assets ──────────────
     const staticPrefixes = ['/admin', '/assets', '/favicon']
     if (staticPrefixes.some(p => path.startsWith(p))) {
       return env.ASSETS.fetch(request)
@@ -355,37 +339,20 @@ export default {
       return Response.redirect(`${url.origin}/admin/`, 302)
     }
 
-    // ── Static asset handling ─────────────────────────────────────────────────
-    // For card pages (/:org/:card/), override cache headers so Cloudflare never
-    // serves a stale cached copy — this ensures refreshOrg() always runs with
-    // a fresh page and can apply the latest branding without a rebuild.
-    const staticResponse = await env.ASSETS.fetch(request)
-    if (staticResponse.status !== 404) {
-      const segments = path.replace(/^\/|\/$/g, '').split('/')
-      const isCardPage = segments.length === 2 && !segments[1].includes('.')
-      if (isCardPage) {
-        return new Response(staticResponse.body, {
-          status: staticResponse.status,
-          headers: {
-            ...Object.fromEntries(staticResponse.headers),
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          }
-        })
-      }
-      return staticResponse
-    }
-
     const segments = path.replace(/^\/|\/$/g, '').split('/')
 
+    // ── Card pages: always generate dynamically from Supabase ─────────────────
+    // We intentionally skip env.ASSETS for card paths so that logo/color
+    // changes made by HR take effect on every new page load — no rebuild needed.
     if (segments.length === 2) {
       const [orgSlug, cardSlug] = segments
-      if (!orgSlug || !cardSlug || cardSlug.includes('.')) return staticResponse
+      if (!orgSlug || !cardSlug || cardSlug.includes('.')) return env.ASSETS.fetch(request)
 
       const org = await fetchOrg(orgSlug)
-      if (!org) return staticResponse
+      if (!org) return env.ASSETS.fetch(request)
 
       const staff = await fetchStaffBySlug(cardSlug, org.id)
-      if (!staff) return staticResponse
+      if (!staff) return env.ASSETS.fetch(request)
 
       const active = await isOrgActive(org.id)
       if (!active) {
@@ -403,10 +370,10 @@ export default {
 
     if (segments.length === 1) {
       const cardSlug = segments[0]
-      if (!cardSlug || cardSlug.includes('.')) return staticResponse
+      if (!cardSlug || cardSlug.includes('.')) return env.ASSETS.fetch(request)
 
       const staff = await fetchStaffBySlug(cardSlug, null)
-      if (!staff) return staticResponse
+      if (!staff) return env.ASSETS.fetch(request)
 
       const orgData = await sbFetch(`organizations?id=eq.${staff.org_id}&select=slug&limit=1`)
       const orgSlug = orgData?.[0]?.slug
@@ -421,6 +388,7 @@ export default {
       return Response.redirect(`${url.origin}/${orgSlug}/${cardSlug}/`, 301)
     }
 
-    return staticResponse
+    // Fallback — serve anything else from static assets
+    return env.ASSETS.fetch(request)
   }
 }
