@@ -53,7 +53,7 @@ function buildCardHTML(s, org, cardURL) {
     mobile: s.mobile || '', email: s.email || '', photo_url: s.photo_url || ''
   })
 
-  return `<\!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -153,7 +153,7 @@ function buildCardHTML(s, org, cardURL) {
 
   const H={apikey:ANON_KEY,Authorization:'Bearer '+ANON_KEY}
   const $=(id)=>document.getElementById(id)
-  const upd=(id,v)=>{const e=$(id);if(e&&v\!=null)e.textContent=v}
+  const upd=(id,v)=>{const e=$(id);if(e&&v!=null)e.textContent=v}
   const root=document.documentElement
 
   function setPrimary(p){
@@ -173,7 +173,7 @@ function buildCardHTML(s, org, cardURL) {
         SUPABASE_URL+'/rest/v1/staff?card_slug=eq.'+SLUG+'&org_id=eq.'+ORG_ID+'&select=*,departments(name)',
         {headers:H}
       ).then(r=>r.json())
-      if(\!d)return
+      if(!d)return
       window._d=d
       upd('staffName',d.full_name)
       upd('staffPos',d.position)
@@ -195,7 +195,7 @@ function buildCardHTML(s, org, cardURL) {
         SUPABASE_URL+'/rest/v1/organizations?id=eq.'+ORG_ID+'&select=name,logo_url,primary_color,secondary_color',
         {headers:H}
       ).then(r=>r.json())
-      if(\!o)return
+      if(!o)return
       if(o.primary_color)setPrimary(o.primary_color)
       if(o.secondary_color)root.style.setProperty('--gold',o.secondary_color)
       const lb=$('logoBar')
@@ -232,7 +232,7 @@ function buildCardHTML(s, org, cardURL) {
   }
   function openWhatsApp(){
     const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
-    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi\! Here is my digital card: '+CARD_URL),'_blank')
+    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
   refreshStaff()
@@ -262,7 +262,7 @@ async function main() {
   console.log(`✅ Found ${orgs.length} organization(s)`)
 
   const distDir = path.join(__dirname, 'dist')
-  if (\!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true })
+  if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true })
 
   let totalGenerated = 0
 
@@ -283,11 +283,11 @@ async function main() {
     console.log(`  👥 ${staffList.length} active staff`)
 
     const orgDir = path.join(distDir, org.slug)
-    if (\!fs.existsSync(orgDir)) fs.mkdirSync(orgDir, { recursive: true })
+    if (!fs.existsSync(orgDir)) fs.mkdirSync(orgDir, { recursive: true })
 
     for (const s of staffList) {
       const cardDir = path.join(orgDir, s.card_slug)
-      if (\!fs.existsSync(cardDir)) fs.mkdirSync(cardDir, { recursive: true })
+      if (!fs.existsSync(cardDir)) fs.mkdirSync(cardDir, { recursive: true })
 
       const cardURL = `${SITE_URL}/${org.slug}/${s.card_slug}/`
       const html = buildCardHTML(s, org, cardURL)
