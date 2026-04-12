@@ -1,10 +1,16 @@
 const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
-const SUPABASE_ANON = 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
+// Use the legacy JWT anon key — required for server-side PostgREST calls from Workers
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdW9wYXVwbmRxeHdzdXl2dG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTA3OTgsImV4cCI6MjA5MDI4Njc5OH0.b2IjAivQbCMtamvkHEZ_RYo1g0t9HILiRHW_PfM_23o'
 
 async function sbFetch(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }
   })
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error(`[sbFetch] HTTP ${res.status} for /${path} — ${errText}`)
+    return null
+  }
   return res.json()
 }
 
@@ -50,20 +56,36 @@ function buildExpiredHTML(orgName) {
 }
 
 async function fetchOrg(slug) {
-  const data = await sbFetch(
-    `organizations?slug=eq.${encodeURIComponent(slug)}&select=id,name,slug,logo_url,primary_color,secondary_color,tagline&is_active=eq.true&limit=1`
-  )
-  return data?.[0] || null
+  try {
+    const data = await sbFetch(
+      `organizations?slug=eq.${encodeURIComponent(slug)}&select=id,name,slug,logo_url,primary_color,secondary_color,tagline&is_active=eq.true&limit=1`
+    )
+    if (!data) return null
+    const org = data?.[0] || null
+    if (!org) console.error(`[fetchOrg] no org found for slug="${slug}"`)
+    return org
+  } catch (e) {
+    console.error('[fetchOrg] threw:', e)
+    return null
+  }
 }
 
 async function fetchStaffBySlug(cardSlug, orgId) {
-  const filter = orgId
-    ? `card_slug=eq.${cardSlug}&org_id=eq.${orgId}`
-    : `card_slug=eq.${cardSlug}`
-  const data = await sbFetch(
-    `staff?${filter}&select=*,departments(name)&is_active=eq.true&limit=1`
-  )
-  return data?.[0] || null
+  try {
+    const filter = orgId
+      ? `card_slug=eq.${cardSlug}&org_id=eq.${orgId}`
+      : `card_slug=eq.${cardSlug}`
+    const data = await sbFetch(
+      `staff?${filter}&select=*,departments(name)&is_active=eq.true&limit=1`
+    )
+    if (!data) return null
+    const staff = data?.[0] || null
+    if (!staff) console.error(`[fetchStaffBySlug] no staff found for card_slug="${cardSlug}" org_id="${orgId}"`)
+    return staff
+  } catch (e) {
+    console.error('[fetchStaffBySlug] threw:', e)
+    return null
+  }
 }
 
 function qrImgTag(url) {
@@ -348,24 +370,36 @@ export default {
       const [orgSlug, cardSlug] = segments
       if (!orgSlug || !cardSlug || cardSlug.includes('.')) return env.ASSETS.fetch(request)
 
-      const org = await fetchOrg(orgSlug)
-      if (!org) return env.ASSETS.fetch(request)
+      try {
+        const org = await fetchOrg(orgSlug)
+        if (!org) {
+          console.error(`[Worker] falling back to static — org not found for slug="${orgSlug}"`)
+          return env.ASSETS.fetch(request)
+        }
 
-      const staff = await fetchStaffBySlug(cardSlug, org.id)
-      if (!staff) return env.ASSETS.fetch(request)
+        const staff = await fetchStaffBySlug(cardSlug, org.id)
+        if (!staff) {
+          console.error(`[Worker] falling back to static — staff not found for card_slug="${cardSlug}"`)
+          return env.ASSETS.fetch(request)
+        }
 
-      const active = await isOrgActive(org.id)
-      if (!active) {
-        return new Response(buildExpiredHTML(org.name), {
-          status: 403,
+        const active = await isOrgActive(org.id)
+        if (!active) {
+          return new Response(buildExpiredHTML(org.name), {
+            status: 403,
+            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+          })
+        }
+
+        const cardURL = `${url.protocol}//${url.host}/${orgSlug}/${cardSlug}/`
+        console.log(`[Worker] serving dynamic card: ${orgSlug}/${cardSlug} — "${staff.full_name}"`)
+        return new Response(buildCardHTML(staff, org, cardURL), {
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
         })
+      } catch (e) {
+        console.error('[Worker] unhandled error in card generation:', e)
+        return env.ASSETS.fetch(request)
       }
-
-      const cardURL = `${url.protocol}//${url.host}/${orgSlug}/${cardSlug}/`
-      return new Response(buildCardHTML(staff, org, cardURL), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
-      })
     }
 
     if (segments.length === 1) {
