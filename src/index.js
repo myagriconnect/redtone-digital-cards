@@ -140,8 +140,9 @@ function buildCardHTML(s, org, cardURL) {
       --p80:${primary}cc;
     }
     html,body{min-height:100vh;background:var(--dark);font-family:'Outfit',-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 50% at 50% -10%,var(--p10) 0%,transparent 60%)}
-    .card{background:var(--card-bg);border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    /* Card starts hidden — revealed by refreshOrg() after fresh branding is applied,
+       preventing any flash of stale colors from the baked-in static HTML. */
+    .card{background:var(--card-bg);border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);opacity:0;transform:translateY(16px);transition:opacity 0.3s ease,transform 0.4s cubic-bezier(.22,1,.36,1)}
     .logo-bar{background:linear-gradient(160deg,#0d1a2e 0%,#060b16 100%);padding:18px 24px 14px;border-bottom:1px solid var(--p12)}
     .logo-bar img{height:28px;width:auto;display:block}
     .logo-text{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--text)}
@@ -226,6 +227,17 @@ function buildCardHTML(s, org, cardURL) {
     root.style.setProperty('--p80',p+'cc')
   }
 
+  // Reveal the card with a smooth fade+slide-up transition.
+  // Called after refreshOrg() applies fresh branding so the user
+  // never sees a flash of stale colors from the static HTML.
+  let _cardShown=false
+  function showCard(){
+    if(_cardShown)return
+    _cardShown=true
+    const c=document.querySelector('.card')
+    if(c){c.style.opacity='1';c.style.transform='translateY(0)'}
+  }
+
   // ── Refresh staff data ───────────────────────────────────────────────────────
   async function refreshStaff(){
     try{
@@ -253,8 +265,9 @@ function buildCardHTML(s, org, cardURL) {
   }
 
   // ── Refresh org branding (logo, colors, name) ────────────────────────────────
-  // This fires on every page load so logo/color changes show immediately
-  // without needing a Cloudflare redeploy.
+  // Fetches latest org design from Supabase on every page load, applies it,
+  // then reveals the card — so design changes by HR show immediately without
+  // any Cloudflare rebuild.
   async function refreshOrg(){
     try{
       const [o]=await fetch(
@@ -282,6 +295,8 @@ function buildCardHTML(s, org, cardURL) {
         sm.innerHTML=o.name+(dept?' &middot; <span class="dept" id="staffDept">'+dept.textContent+'</span>':'')
       }
     }catch(_){}
+    // Always reveal the card — even if the fetch fails, show with baked-in values
+    showCard()
   }
 
   // ── vCard save ───────────────────────────────────────────────────────────────
@@ -309,9 +324,12 @@ function buildCardHTML(s, org, cardURL) {
     window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
-  // Run both refreshes on every page load — parallel, non-blocking
+  // refreshStaff runs in parallel (non-blocking, does not affect card visibility)
   refreshStaff()
+  // refreshOrg controls card visibility — card fades in after fresh branding is applied
   refreshOrg()
+  // Safety fallback: if Supabase takes >2s or fails silently, show card anyway
+  setTimeout(showCard, 2000)
 </script>
 </body>
 </html>`
@@ -337,8 +355,25 @@ export default {
       return Response.redirect(`${url.origin}/admin/`, 302)
     }
 
+    // ── Static asset handling ─────────────────────────────────────────────────
+    // For card pages (/:org/:card/), override cache headers so Cloudflare never
+    // serves a stale cached copy — this ensures refreshOrg() always runs with
+    // a fresh page and can apply the latest branding without a rebuild.
     const staticResponse = await env.ASSETS.fetch(request)
-    if (staticResponse.status !== 404) return staticResponse
+    if (staticResponse.status !== 404) {
+      const segments = path.replace(/^\/|\/$/g, '').split('/')
+      const isCardPage = segments.length === 2 && !segments[1].includes('.')
+      if (isCardPage) {
+        return new Response(staticResponse.body, {
+          status: staticResponse.status,
+          headers: {
+            ...Object.fromEntries(staticResponse.headers),
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        })
+      }
+      return staticResponse
+    }
 
     const segments = path.replace(/^\/|\/$/g, '').split('/')
 
