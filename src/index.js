@@ -12,7 +12,7 @@ async function isOrgActive(orgId) {
   try {
     const data = await sbFetch(`subscriptions?org_id=eq.${orgId}&select=plan,status,trial_ends_at&limit=1`)
     const sub = data?.[0]
-    if (\!sub) return true
+    if (!sub) return true
     if (sub.status === 'suspended') return false
     if (sub.status === 'expired') return false
     if (sub.plan === 'trial' && sub.trial_ends_at) {
@@ -23,7 +23,7 @@ async function isOrgActive(orgId) {
 }
 
 function buildExpiredHTML(orgName) {
-  return `<\!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -110,7 +110,7 @@ function buildCardHTML(s, org, cardURL) {
 
   // NOTE: All primary-color alpha variants are defined as CSS custom properties
   // so the client-side refresh() can update them dynamically when org changes logo/colors.
-  return `<\!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -211,7 +211,7 @@ function buildCardHTML(s, org, cardURL) {
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const H={apikey:ANON_KEY,Authorization:'Bearer '+ANON_KEY}
   const $=(id)=>document.getElementById(id)
-  const upd=(id,v)=>{const e=$(id);if(e&&v\!=null)e.textContent=v}
+  const upd=(id,v)=>{const e=$(id);if(e&&v!=null)e.textContent=v}
   const root=document.documentElement
 
   // Set all primary-color CSS custom properties at once
@@ -233,7 +233,7 @@ function buildCardHTML(s, org, cardURL) {
         SUPABASE_URL+'/rest/v1/staff?card_slug=eq.'+SLUG+'&org_id=eq.'+ORG_ID+'&select=*,departments(name)',
         {headers:H}
       ).then(r=>r.json())
-      if(\!d)return
+      if(!d)return
       window._d=d
       upd('staffName',d.full_name)
       upd('staffPos',d.position)
@@ -261,7 +261,7 @@ function buildCardHTML(s, org, cardURL) {
         SUPABASE_URL+'/rest/v1/organizations?id=eq.'+ORG_ID+'&select=name,logo_url,primary_color,secondary_color',
         {headers:H}
       ).then(r=>r.json())
-      if(\!o)return
+      if(!o)return
 
       // Update brand colors
       if(o.primary_color)setPrimary(o.primary_color)
@@ -271,7 +271,7 @@ function buildCardHTML(s, org, cardURL) {
       const lb=$('logoBar')
       if(lb&&o.logo_url){
         lb.innerHTML='<img src="'+o.logo_url+'" alt="'+o.name+'" id="orgLogo" style="height:28px;width:auto;display:block"/>'
-      }else if(lb&&o.name&&\!o.logo_url){
+      }else if(lb&&o.name&&!o.logo_url){
         lb.innerHTML='<div class="logo-text" id="orgLogoText"><span>'+o.name.slice(0,3).toUpperCase()+'</span>'+o.name.slice(3)+'</div>'
       }
 
@@ -306,7 +306,7 @@ function buildCardHTML(s, org, cardURL) {
   }
   function openWhatsApp(){
     const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
-    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi\! Here is my digital card: '+CARD_URL),'_blank')
+    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
   // Run both refreshes on every page load — parallel, non-blocking
@@ -338,22 +338,22 @@ export default {
     }
 
     const staticResponse = await env.ASSETS.fetch(request)
-    if (staticResponse.status \!== 404) return staticResponse
+    if (staticResponse.status !== 404) return staticResponse
 
     const segments = path.replace(/^\/|\/$/g, '').split('/')
 
     if (segments.length === 2) {
       const [orgSlug, cardSlug] = segments
-      if (\!orgSlug || \!cardSlug || cardSlug.includes('.')) return staticResponse
+      if (!orgSlug || !cardSlug || cardSlug.includes('.')) return staticResponse
 
       const org = await fetchOrg(orgSlug)
-      if (\!org) return staticResponse
+      if (!org) return staticResponse
 
       const staff = await fetchStaffBySlug(cardSlug, org.id)
-      if (\!staff) return staticResponse
+      if (!staff) return staticResponse
 
       const active = await isOrgActive(org.id)
-      if (\!active) {
+      if (!active) {
         return new Response(buildExpiredHTML(org.name), {
           status: 403,
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
@@ -368,15 +368,15 @@ export default {
 
     if (segments.length === 1) {
       const cardSlug = segments[0]
-      if (\!cardSlug || cardSlug.includes('.')) return staticResponse
+      if (!cardSlug || cardSlug.includes('.')) return staticResponse
 
       const staff = await fetchStaffBySlug(cardSlug, null)
-      if (\!staff) return staticResponse
+      if (!staff) return staticResponse
 
       const orgData = await sbFetch(`organizations?id=eq.${staff.org_id}&select=slug&limit=1`)
       const orgSlug = orgData?.[0]?.slug
 
-      if (\!orgSlug) {
+      if (!orgSlug) {
         const orgFull = { id: staff.org_id, name: 'REDtone', logo_url: '', primary_color: '#E8001D', secondary_color: '#C9973A' }
         return new Response(buildCardHTML(staff, orgFull, `${url.protocol}//${url.host}/${cardSlug}/`), {
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
