@@ -510,26 +510,40 @@ function buildCardHTML(s, org, cardURL) {
   // ── vCard save ───────────────────────────────────────────────────────────────
   function saveContact(){
     const d=window._d
+    if(!d)return
     const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
       d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',d.email?'EMAIL:'+d.email:'',
       d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'','END:VCARD'
     ].filter(Boolean).join('\r\n')
-    if(navigator.share&&navigator.canShare){
-      const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
-      if(navigator.canShare({files:[file]})){navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name));return}
-    }
+    // Try native share sheet first (mobile), fall back to direct download
+    try{
+      if(navigator.share&&navigator.canShare){
+        const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
+        if(navigator.canShare({files:[file]})){
+          navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name))
+          return
+        }
+      }
+    }catch(_){}
     dl(vcf,d.full_name)
   }
   function dl(vcf,name){
-    const b=new Blob([vcf],{type:'text/vcard'})
-    const u=URL.createObjectURL(b)
-    const a=document.createElement('a')
-    a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)
+    try{
+      const b=new Blob([vcf],{type:'text/vcard'})
+      const u=URL.createObjectURL(b)
+      const a=document.createElement('a')
+      a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
+      document.body.appendChild(a);a.click()
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},200)
+    }catch(_){}
   }
   function openWhatsApp(){
-    const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
-    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
+    const d=window._d
+    if(!d)return
+    const m=(d.mobile||'').replace(/[^0-9]/g,'')
+    if(!m)return
+    // Use location.href instead of window.open — more reliable on mobile (no popup block)
+    window.location.href='https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL)
   }
 
   refreshStaff()
