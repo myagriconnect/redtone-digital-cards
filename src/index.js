@@ -3,10 +3,15 @@ const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdW9wYXVwbmRxeHdzdXl2dG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTA3OTgsImV4cCI6MjA5MDI4Njc5OH0.b2IjAivQbCMtamvkHEZ_RYo1g0t9HILiRHW_PfM_23o'
 
 async function sbFetch(path) {
-  const sep = path.includes('?') ? '&' : '?'
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}${sep}_t=${Date.now()}`, {
-    headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
-    cache: 'no-store'
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SUPABASE_ANON,
+      Authorization: `Bearer ${SUPABASE_ANON}`,
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache'
+    },
+    // Tell Cloudflare's edge cache to never cache this subrequest
+    cf: { cacheEverything: false, cacheTtl: 0 }
   })
   if (!res.ok) {
     const errText = await res.text()
@@ -600,7 +605,13 @@ export default {
         const cardURL = `${url.protocol}//${url.host}/${orgSlug}/${cardSlug}/`
         console.log(`[Worker] serving dynamic card: ${orgSlug}/${cardSlug} — "${staff.full_name}"`)
         return new Response(buildCardHTML(staff, org, cardURL), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Surrogate-Control': 'no-store',
+            'CDN-Cache-Control': 'no-store'
+          }
         })
       } catch (e) {
         console.error('[Worker] unhandled error in card generation:', e)
@@ -621,7 +632,13 @@ export default {
       if (!orgSlug) {
         const orgFull = { id: staff.org_id, name: 'REDtone', logo_url: '', primary_color: '#E8001D', secondary_color: '#C9973A' }
         return new Response(buildCardHTML(staff, orgFull, `${url.protocol}//${url.host}/${cardSlug}/`), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Surrogate-Control': 'no-store',
+            'CDN-Cache-Control': 'no-store'
+          }
         })
       }
 
