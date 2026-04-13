@@ -507,43 +507,23 @@ function buildCardHTML(s, org, cardURL) {
     }catch(_){}
   }
 
-  // ── vCard save ───────────────────────────────────────────────────────────────
+  // ── vCard save — server-side endpoint for reliable mobile download ───────────
   function saveContact(){
-    const d=window._d
-    if(!d)return
-    const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
-      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',d.email?'EMAIL:'+d.email:'',
-      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'','END:VCARD'
-    ].filter(Boolean).join('\r\n')
-    // Try native share sheet first (mobile), fall back to direct download
-    try{
-      if(navigator.share&&navigator.canShare){
-        const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
-        if(navigator.canShare({files:[file]})){
-          navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name))
-          return
-        }
-      }
-    }catch(_){}
-    dl(vcf,d.full_name)
-  }
-  function dl(vcf,name){
-    try{
-      const b=new Blob([vcf],{type:'text/vcard'})
-      const u=URL.createObjectURL(b)
-      const a=document.createElement('a')
-      a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
-      document.body.appendChild(a);a.click()
-      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},200)
-    }catch(_){}
+    // Navigate to the server-side vCard endpoint which sends proper
+    // Content-Disposition headers — works on iOS Safari, Android, desktop.
+    window.location.href=CARD_URL+'vcard'
   }
   function openWhatsApp(){
     const d=window._d
     if(!d)return
-    const m=(d.mobile||'').replace(/[^0-9]/g,'')
+    // Normalise number: strip spaces/dashes/parens, remove leading +,
+    // convert local Malaysian 0xx format → 60xx (country code 60).
+    let m=(d.mobile||'').replace(/[\s\-\(\)\.]/g,'')
+    if(m.startsWith('+'))m=m.slice(1)
+    if(m.startsWith('0'))m='60'+m.slice(1)
+    m=m.replace(/[^0-9]/g,'')
     if(!m)return
-    // Use location.href instead of window.open — more reliable on mobile (no popup block)
-    window.location.href='https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL)
+    window.open('https://wa.me/'+m,'_blank')
   }
 
   refreshStaff()
@@ -645,6 +625,43 @@ export default {
       }
 
       return Response.redirect(`${url.origin}/${orgSlug}/${cardSlug}/`, 301)
+    }
+
+    // ── vCard download: /:org/:slug/vcard ──────────────────────────────────────
+    // Server-side endpoint so mobile browsers (iOS Safari, Android) get a proper
+    // Content-Disposition attachment download instead of a blob URL workaround.
+    if (segments.length === 3 && segments[2] === 'vcard') {
+      const [orgSlug, cardSlug] = segments
+      try {
+        const org   = await fetchOrg(orgSlug)
+        const staff = org ? await fetchStaffBySlug(cardSlug, org.id) : null
+        if (!staff) return new Response('Not found', { status: 404 })
+
+        const orgName = org?.name || 'REDtone'
+        const lines = [
+          'BEGIN:VCARD',
+          'VERSION:3.0',
+          'FN:' + (staff.full_name || ''),
+          'ORG:' + orgName,
+          'TITLE:' + (staff.position || ''),
+          staff.mobile    ? 'TEL;TYPE=CELL:' + staff.mobile    : '',
+          staff.email     ? 'EMAIL:'         + staff.email     : '',
+          staff.photo_url ? 'PHOTO;VALUE=URL:' + staff.photo_url : '',
+        ].filter(Boolean).join('\r\n')
+        const vcf = lines + '\r\nEND:VCARD\r\n'
+        const filename = (staff.full_name || 'contact').replace(/\s+/g, '_') + '.vcf'
+
+        return new Response(vcf, {
+          headers: {
+            'Content-Type': 'text/vcard; charset=utf-8',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Cache-Control': 'no-store'
+          }
+        })
+      } catch (e) {
+        console.error('[Worker] vCard error:', e)
+        return new Response('Error', { status: 500 })
+      }
     }
 
     // Fallback — serve anything else from static assets
