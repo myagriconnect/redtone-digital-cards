@@ -6,7 +6,8 @@ async function sbFetch(path) {
   const sep = path.includes('?') ? '&' : '?'
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}${sep}_t=${Date.now()}`, {
     headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` },
-    cache: 'no-store'
+    cache: 'no-store',
+    cf: { cacheTtl: 0, cacheEverything: false }
   })
   if (!res.ok) {
     const errText = await res.text()
@@ -95,32 +96,32 @@ function qrImgTag(url) {
   return `<img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encoded}" width="160" height="160" alt="QR Code" style="display:block"/>`
 }
 
-function buildCardHTML(s, org, cardURL) {
+function buildCardHTML(staff, org, cardURL) {
   const orgName   = org?.name || 'REDtone'
   const logoUrl   = org?.logo_url || ''
   const primary   = org?.primary_color || '#E8001D'
   const secondary = org?.secondary_color || '#C9973A'
-  const deptName  = s.departments?.name || ''
-  const initials  = s.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  const deptName  = staff.departments?.name || ''
+  const initials  = staff.full_name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
 
   const logoBar = logoUrl
     ? `<img src="${logoUrl}" alt="${orgName}" id="orgLogo"/>`
     : `<div class="logo-text" id="orgLogoText"><span>${orgName.slice(0,3).toUpperCase()}</span>${orgName.slice(3)}</div>`
 
-  const photoHtml = s.photo_url
-    ? `<img src="${s.photo_url}" alt="${s.full_name}" id="staffPhoto"/>`
+  const photoHtml = staff.photo_url
+    ? `<img src="${staff.photo_url}" alt="${staff.full_name}" id="staffPhoto"/>`
     : `<div class="photo-initials">${initials}</div>`
 
-  const mobileHtml = s.mobile ? `
-    <a class="contact-item" href="tel:${s.mobile}" id="mobileLink">
+  const mobileHtml = staff.mobile ? `
+    <a class="contact-item" href="tel:${staff.mobile}" id="mobileLink">
       <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
-      <div><div class="contact-label">Mobile</div><div class="contact-value" id="staffMobile">${s.mobile}</div></div>
+      <div><div class="contact-label">Mobile</div><div class="contact-value" id="staffMobile">${staff.mobile}</div></div>
     </a>` : ''
 
-  const emailHtml = s.email ? `
-    <a class="contact-item" href="mailto:${s.email}" id="emailLink">
+  const emailHtml = staff.email ? `
+    <a class="contact-item" href="mailto:${staff.email}" id="emailLink">
       <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
-      <div><div class="contact-label">Email</div><div class="contact-value" id="staffEmail">${s.email}</div></div>
+      <div><div class="contact-label">Email</div><div class="contact-value" id="staffEmail">${staff.email}</div></div>
     </a>` : ''
 
   const deptMeta = deptName
@@ -128,21 +129,25 @@ function buildCardHTML(s, org, cardURL) {
     : ''
 
   const initData = JSON.stringify({
-    full_name: s.full_name, position: s.position,
-    mobile: s.mobile || '', email: s.email || '', photo_url: s.photo_url || ''
+    id: staff.id,
+    full_name: staff.full_name, 
+    position: staff.position,
+    mobile: staff.mobile || '', 
+    email: staff.email || '', 
+    photo_url: staff.photo_url || '',
+    card_slug: staff.card_slug,
+    org_id: staff.org_id
   })
 
-  // NOTE: All primary-color alpha variants are defined as CSS custom properties
-  // so the client-side refreshOrg() can apply any live changes during the session.
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${s.full_name} - ${orgName}</title>
-  <meta property="og:title" content="${s.full_name}"/>
-  <meta property="og:description" content="${s.position}${deptName ? ' - ' + deptName : ''}"/>
-  ${s.photo_url ? `<meta property="og:image" content="${s.photo_url}"/>` : ''}
+  <title>${staff.full_name} - ${orgName}</title>
+  <meta property="og:title" content="${staff.full_name}"/>
+  <meta property="og:description" content="${staff.position}${deptName ? ' - ' + deptName : ''}"/>
+  ${staff.photo_url ? `<meta property="og:image" content="${staff.photo_url}"/>` : ''}
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
   <style>
@@ -154,7 +159,6 @@ function buildCardHTML(s, org, cardURL) {
       --card-bg:#0d1520;
       --text:#f0f2f7;
       --muted:#8892a4;
-      /* Alpha variants of primary color — all updated together by refreshOrg() */
       --p10:${primary}1a;
       --p12:${primary}1f;
       --p15:${primary}26;
@@ -197,20 +201,22 @@ function buildCardHTML(s, org, cardURL) {
     .wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25D366;border:none;border-radius:12px;padding:14px;color:white;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(37,211,102,.3);transition:all .2s;margin-top:10px}
     .wa-btn:hover{transform:translateY(-1px)}
     .wa-btn svg{width:16px;height:16px}
+    .refresh-indicator{position:fixed;bottom:20px;right:20px;background:var(--p80);color:white;padding:4px 8px;border-radius:8px;font-size:10px;opacity:0;transition:opacity 0.3s;pointer-events:none}
+    .refresh-indicator.show{opacity:1}
   </style>
 </head>
 <body>
 <div class="card">
   <div class="logo-bar" id="logoBar">${logoBar}</div>
   <div class="identity">
-    <div class="photo-ring">${photoHtml}</div>
+    <div class="photo-ring" id="photoRing">${photoHtml}</div>
     <div class="info">
-      <div class="staff-name" id="staffName">${s.full_name}</div>
-      <div class="staff-pos"  id="staffPos">${s.position}</div>
+      <div class="staff-name" id="staffName">${staff.full_name}</div>
+      <div class="staff-pos"  id="staffPos">${staff.position}</div>
       <div class="staff-meta" id="staffMeta">${orgName}${deptMeta}</div>
     </div>
   </div>
-  <div class="card-body">${mobileHtml}${emailHtml}</div>
+  <div class="card-body" id="contactBody">${mobileHtml}${emailHtml}</div>
   <div class="card-footer">
     <div class="qr-label">Scan to view digital card</div>
     <div class="qr-wrap">${qrImgTag(cardURL)}</div>
@@ -224,21 +230,32 @@ function buildCardHTML(s, org, cardURL) {
     </button>
   </div>
 </div>
+<div class="refresh-indicator" id="refreshIndicator">🔄 Card updated</div>
+
 <script>
   const SUPABASE_URL='${SUPABASE_URL}'
   const ANON_KEY='${SUPABASE_ANON}'
-  const SLUG='${s.card_slug}'
+  const SLUG='${staff.card_slug}'
   const CARD_URL='${cardURL}'
-  const ORG_ID='${s.org_id}'
+  const ORG_ID='${staff.org_id}'
+  const STAFF_ID='${staff.id}'
+  let refreshTimeout = null
+  
   window._d=${initData}
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
   const H={apikey:ANON_KEY,Authorization:'Bearer '+ANON_KEY}
   const $=(id)=>document.getElementById(id)
   const upd=(id,v)=>{const e=$(id);if(e&&v!=null)e.textContent=v}
   const root=document.documentElement
 
-  // Set all primary-color CSS custom properties at once
+  function showRefreshIndicator() {
+    const indicator = $('refreshIndicator')
+    if(indicator) {
+      indicator.classList.add('show')
+      setTimeout(() => indicator.classList.remove('show'), 2000)
+    }
+  }
+
   function setPrimary(p){
     root.style.setProperty('--red',p)
     root.style.setProperty('--p10',p+'1a')
@@ -250,93 +267,197 @@ function buildCardHTML(s, org, cardURL) {
     root.style.setProperty('--p80',p+'cc')
   }
 
-  // ── Refresh staff data ───────────────────────────────────────────────────────
   async function refreshStaff(){
     try{
-      const [d]=await fetch(
-        SUPABASE_URL+'/rest/v1/staff?card_slug=eq.'+SLUG+'&org_id=eq.'+ORG_ID+'&select=*,departments(name)',
-        {headers:H}
-      ).then(r=>r.json())
-      if(!d)return
-      window._d=d
-      upd('staffName',d.full_name)
-      upd('staffPos',d.position)
-      upd('staffMobile',d.mobile||'')
-      upd('staffEmail',d.email||'')
-      const ml=$('mobileLink');if(ml&&d.mobile)ml.href='tel:'+d.mobile
-      const el=$('emailLink');if(el&&d.email)el.href='mailto:'+d.email
-      if(d.photo_url){
-        const r=document.querySelector('.photo-ring')
-        if(r)r.innerHTML='<img src="'+d.photo_url+'" alt="'+d.full_name+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid var(--card-bg);display:block"/>'
+      const timestamp = Date.now()
+      const response = await fetch(
+        SUPABASE_URL+'/rest/v1/staff?id=eq.'+STAFF_ID+'&select=*,departments(name)&_t='+timestamp,
+        {headers:H, cache:'no-store'}
+      )
+      
+      if(!response.ok) throw new Error('Failed to fetch staff')
+      
+      const data = await response.json()
+      const d = data?.[0]
+      if(!d) return
+      
+      let changed = false
+      
+      if(window._d.full_name !== d.full_name) {
+        upd('staffName', d.full_name)
+        changed = true
       }
+      if(window._d.position !== d.position) {
+        upd('staffPos', d.position)
+        changed = true
+      }
+      if(window._d.mobile !== (d.mobile || '')) {
+        upd('staffMobile', d.mobile || '')
+        const ml = $('mobileLink')
+        if(ml && d.mobile) ml.href = 'tel:' + d.mobile
+        changed = true
+      }
+      if(window._d.email !== (d.email || '')) {
+        upd('staffEmail', d.email || '')
+        const el = $('emailLink')
+        if(el && d.email) el.href = 'mailto:' + d.email
+        changed = true
+      }
+      
+      if(window._d.photo_url !== d.photo_url && d.photo_url){
+        const photoRing = $('photoRing')
+        if(photoRing){
+          photoRing.innerHTML = '<img src="'+d.photo_url+'" alt="'+d.full_name+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid var(--card-bg);display:block"/>'
+          changed = true
+        }
+      }
+      
       if(d.departments?.name){
-        const dept=$('staffDept')
-        if(dept)dept.textContent=d.departments.name
+        const dept = $('staffDept')
+        if(dept && window._d.departments?.name !== d.departments.name){
+          dept.textContent = d.departments.name
+          changed = true
+        }
       }
-    }catch(_){}
+      
+      if(changed) {
+        window._d = d
+        showRefreshIndicator()
+        
+        // Rebuild contact section if mobile/email changed
+        const contactBody = $('contactBody')
+        if(contactBody && (window._d.mobile !== d.mobile || window._d.email !== d.email)) {
+          let newMobileHtml = d.mobile ? \`
+            <a class="contact-item" href="tel:\${d.mobile}" id="mobileLink">
+              <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.63A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
+              <div><div class="contact-label">Mobile</div><div class="contact-value" id="staffMobile">\${d.mobile}</div></div>
+            </a>\` : ''
+          
+          let newEmailHtml = d.email ? \`
+            <a class="contact-item" href="mailto:\${d.email}" id="emailLink">
+              <div class="contact-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+              <div><div class="contact-label">Email</div><div class="contact-value" id="staffEmail">\${d.email}</div></div>
+            </a>\` : ''
+          
+          contactBody.innerHTML = newMobileHtml + newEmailHtml
+        }
+      }
+    } catch(e){
+      console.error('Refresh staff failed:', e)
+    }
   }
 
-  // ── Refresh org branding (logo, colors, name) ────────────────────────────────
-  // The Worker already fetches fresh org data on every request, so colors/logo
-  // are always correct on initial load. This runs as a live-update safety net
-  // in case HR makes changes while a card is already open in someone's browser.
   async function refreshOrg(){
     try{
-      const [o]=await fetch(
-        SUPABASE_URL+'/rest/v1/organizations?id=eq.'+ORG_ID+'&select=name,logo_url,primary_color,secondary_color',
-        {headers:H}
-      ).then(r=>r.json())
-      if(!o)return
+      const timestamp = Date.now()
+      const response = await fetch(
+        SUPABASE_URL+'/rest/v1/organizations?id=eq.'+ORG_ID+'&select=name,logo_url,primary_color,secondary_color&_t='+timestamp,
+        {headers:H, cache:'no-store'}
+      )
+      
+      if(!response.ok) throw new Error('Failed to fetch org')
+      
+      const data = await response.json()
+      const o = data?.[0]
+      if(!o) return
 
-      // Update brand colors
-      if(o.primary_color)setPrimary(o.primary_color)
-      if(o.secondary_color)root.style.setProperty('--gold',o.secondary_color)
+      let changed = false
 
-      // Update logo bar
-      const lb=$('logoBar')
-      if(lb&&o.logo_url){
-        lb.innerHTML='<img src="'+o.logo_url+'" alt="'+o.name+'" id="orgLogo" style="height:28px;width:auto;display:block"/>'
-      }else if(lb&&o.name&&!o.logo_url){
-        lb.innerHTML='<div class="logo-text" id="orgLogoText"><span>'+o.name.slice(0,3).toUpperCase()+'</span>'+o.name.slice(3)+'</div>'
+      if(o.primary_color && o.primary_color !== getComputedStyle(root).getPropertyValue('--red').trim()) {
+        setPrimary(o.primary_color)
+        changed = true
+      }
+      if(o.secondary_color && o.secondary_color !== getComputedStyle(root).getPropertyValue('--gold').trim()) {
+        root.style.setProperty('--gold', o.secondary_color)
+        changed = true
       }
 
-      // Update org name in staff-meta, preserving dept tag
-      const sm=$('staffMeta')
-      if(sm&&o.name){
-        const dept=sm.querySelector('.dept')
-        sm.innerHTML=o.name+(dept?' &middot; <span class="dept" id="staffDept">'+dept.textContent+'</span>':'')
+      const lb = $('logoBar')
+      if(lb && o.logo_url){
+        const currentLogo = lb.querySelector('img')
+        if(!currentLogo || currentLogo.src !== o.logo_url){
+          lb.innerHTML = '<img src="'+o.logo_url+'" alt="'+o.name+'" id="orgLogo" style="height:28px;width:auto;display:block"/>'
+          changed = true
+        }
+      } else if(lb && o.name && !o.logo_url){
+        const currentText = lb.querySelector('.logo-text')
+        if(!currentText){
+          lb.innerHTML = '<div class="logo-text" id="orgLogoText"><span>'+o.name.slice(0,3).toUpperCase()+'</span>'+o.name.slice(3)+'</div>'
+          changed = true
+        }
       }
-    }catch(_){}
+
+      const sm = $('staffMeta')
+      if(sm && o.name){
+        const currentName = sm.childNodes[0]?.textContent?.trim()
+        if(currentName !== o.name){
+          const dept = sm.querySelector('.dept')
+          sm.innerHTML = o.name + (dept ? ' &middot; <span class="dept" id="staffDept">'+dept.textContent+'</span>' : '')
+          changed = true
+        }
+      }
+      
+      if(changed) showRefreshIndicator()
+    } catch(e){
+      console.error('Refresh org failed:', e)
+    }
   }
 
-  // ── vCard save ───────────────────────────────────────────────────────────────
+  async function refreshAll() {
+    await Promise.all([refreshStaff(), refreshOrg()])
+  }
+
   function saveContact(){
-    const d=window._d
-    const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
+    const d = window._d
+    const vcf = ['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:'+d.org_name || '${orgName}','TITLE:'+d.position,
       d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',d.email?'EMAIL:'+d.email:'',
       d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'','END:VCARD'
-    ].filter(Boolean).join('\r\n')
-    if(navigator.share&&navigator.canShare){
-      const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
-      if(navigator.canShare({files:[file]})){navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name));return}
+    ].filter(Boolean).join('\\r\\n')
+    
+    if(navigator.share && navigator.canShare){
+      const file = new File([vcf], d.full_name.replace(/\\s+/g,'_')+'.vcf', {type:'text/vcard'})
+      if(navigator.canShare({files:[file]})){
+        navigator.share({files:[file]}).catch(() => downloadVCard(vcf, d.full_name))
+        return
+      }
     }
-    dl(vcf,d.full_name)
+    downloadVCard(vcf, d.full_name)
   }
-  function dl(vcf,name){
-    const b=new Blob([vcf],{type:'text/vcard'})
-    const u=URL.createObjectURL(b)
-    const a=document.createElement('a')
-    a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)
+  
+  function downloadVCard(vcf, name){
+    const b = new Blob([vcf], {type:'text/vcard'})
+    const u = URL.createObjectURL(b)
+    const a = document.createElement('a')
+    a.href = u
+    a.download = name.replace(/\\s+/g,'_')+'.vcf'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(u)
   }
+  
   function openWhatsApp(){
-    const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
-    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
+    const m = (window._d.mobile || '').replace(/[^0-9]/g,'')
+    if(m) window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL), '_blank')
   }
 
-  // Run both refreshes on every page load — parallel, non-blocking
-  refreshStaff()
-  refreshOrg()
+  // Initial load with cache busting
+  refreshAll()
+  
+  // Refresh every 30 seconds to catch any changes
+  setInterval(refreshAll, 30000)
+  
+  // Refresh when tab becomes visible again
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshAll()
+    }
+  })
+  
+  // Optional: Refresh when page receives focus
+  window.addEventListener('focus', () => {
+    refreshAll()
+  })
 </script>
 </body>
 </html>`
@@ -347,7 +468,6 @@ export default {
     const url  = new URL(request.url)
     const path = url.pathname
 
-    // ── Static-only routes — always serve from pre-built assets ──────────────
     const staticPrefixes = ['/admin', '/assets', '/favicon']
     if (staticPrefixes.some(p => path.startsWith(p))) {
       return env.ASSETS.fetch(request)
@@ -365,9 +485,6 @@ export default {
 
     const segments = path.replace(/^\/|\/$/g, '').split('/')
 
-    // ── Card pages: always generate dynamically from Supabase ─────────────────
-    // We intentionally skip env.ASSETS for card paths so that logo/color
-    // changes made by HR take effect on every new page load — no rebuild needed.
     if (segments.length === 2) {
       const [orgSlug, cardSlug] = segments
       if (!orgSlug || !cardSlug || cardSlug.includes('.')) return env.ASSETS.fetch(request)
@@ -389,14 +506,27 @@ export default {
         if (!active) {
           return new Response(buildExpiredHTML(org.name), {
             status: 403,
-            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+            headers: { 
+              'Content-Type': 'text/html; charset=utf-8', 
+              'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+              'Pragma': 'no-cache',
+              'Expires': '0',
+              'CDN-Cache-Control': 'no-store'
+            }
           })
         }
 
         const cardURL = `${url.protocol}//${url.host}/${orgSlug}/${cardSlug}/`
-        console.log(`[Worker] serving dynamic card: ${orgSlug}/${cardSlug} — "${staff.full_name}"`)
+        console.log(`[Worker] serving dynamic card: ${orgSlug}/${cardSlug} — "${staff.full_name}" at ${new Date().toISOString()}`)
+        
         return new Response(buildCardHTML(staff, org, cardURL), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+          headers: { 
+            'Content-Type': 'text/html; charset=utf-8', 
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'CDN-Cache-Control': 'no-store'
+          }
         })
       } catch (e) {
         console.error('[Worker] unhandled error in card generation:', e)
@@ -417,14 +547,16 @@ export default {
       if (!orgSlug) {
         const orgFull = { id: staff.org_id, name: 'REDtone', logo_url: '', primary_color: '#E8001D', secondary_color: '#C9973A' }
         return new Response(buildCardHTML(staff, orgFull, `${url.protocol}//${url.host}/${cardSlug}/`), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+          headers: { 
+            'Content-Type': 'text/html; charset=utf-8', 
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+          }
         })
       }
 
       return Response.redirect(`${url.origin}/${orgSlug}/${cardSlug}/`, 301)
     }
 
-    // Fallback — serve anything else from static assets
     return env.ASSETS.fetch(request)
   }
 }
