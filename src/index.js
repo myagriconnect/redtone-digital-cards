@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
-// Use the legacy JWT anon key — required for server-side PostgREST calls from Workers
+// Use the legacy JWT anon key — required for server-side PostgREST calls from Worker s
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdW9wYXVwbmRxeHdzdXl2dG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTA3OTgsImV4cCI6MjA5MDI4Njc5OH0.b2IjAivQbCMtamvkHEZ_RYo1g0t9HILiRHW_PfM_23o'
 
 async function sbFetch(path) {
