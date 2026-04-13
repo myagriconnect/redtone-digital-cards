@@ -211,7 +211,6 @@ function buildCardHTML(s, org, cardURL) {
     }
     body{
       min-height:100vh;
-      min-height:100svh;
       background:var(--dark);
       font-family:'Outfit',-apple-system,sans-serif;
       color:var(--text);
@@ -219,15 +218,10 @@ function buildCardHTML(s, org, cardURL) {
       align-items:flex-start;
       justify-content:center;
       background-image:radial-gradient(ellipse 100% 40% at 50% 0%,var(--p10) 0%,transparent 60%);
-      /* Safe areas for notched phones */
-      padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+      padding:0;
     }
-    /* On larger screens, center the card vertically too */
-    @media(min-height:700px) and (min-width:500px){
-      body{align-items:center;padding:32px}
-    }
-    @media(min-width:500px){
-      body{padding:24px}
+    @media(min-width:480px){
+      body{align-items:center;padding:24px}
     }
 
     /* ── Card shell ─────────────────────────────────────────────────────────── */
@@ -236,18 +230,13 @@ function buildCardHTML(s, org, cardURL) {
       border:1px solid rgba(255,255,255,.07);
       width:100%;
       max-width:430px;
-      /* Full-bleed on small phones, rounded on bigger screens */
       border-radius:0;
       overflow:hidden;
       box-shadow:0 32px 80px rgba(0,0,0,.7);
       animation:fadeUp .5s cubic-bezier(.22,1,.36,1) both;
-      display:flex;
-      flex-direction:column;
-      /* Grow to fill the viewport height on mobile */
-      min-height:100svh;
     }
     @media(min-width:480px){
-      .card{border-radius:24px;min-height:auto}
+      .card{border-radius:24px}
     }
     @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 
@@ -299,7 +288,6 @@ function buildCardHTML(s, org, cardURL) {
     /* ── Contact list ───────────────────────────────────────────────────────── */
     .card-body{
       padding:clamp(14px,4vw,22px) clamp(18px,5vw,28px);
-      flex:1;
     }
     .contact-item{
       display:flex;align-items:center;gap:14px;
