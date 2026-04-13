@@ -78,7 +78,7 @@ async function fetchStaffBySlug(cardSlug, orgId) {
       ? `card_slug=eq.${cardSlug}&org_id=eq.${orgId}`
       : `card_slug=eq.${cardSlug}`
     const data = await sbFetch(
-      `staff?${filter}&select=*,social_links,departments(name)&is_active=eq.true&limit=1`
+      `staff?${filter}&select=*,departments(name)&is_active=eq.true&limit=1`
     )
     if (!data) return null
     const staff = data?.[0] || null
@@ -470,7 +470,7 @@ function buildCardHTML(s, org, cardURL) {
   async function refreshStaff(){
     try{
       const [d]=await fetch(
-        SUPABASE_URL+'/rest/v1/staff?card_slug=eq.'+SLUG+'&org_id=eq.'+ORG_ID+'&select=*,social_links,departments(name)',
+        SUPABASE_URL+'/rest/v1/staff?card_slug=eq.'+SLUG+'&org_id=eq.'+ORG_ID+'&select=*,departments(name)',
         {headers:H}
       ).then(r=>r.json())
       if(!d)return
