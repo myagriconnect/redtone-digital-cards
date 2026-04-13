@@ -246,13 +246,20 @@ function buildCardHTML(s, org, cardURL) {
 
   function saveContact(){
     const d=window._d
-    const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
-      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',d.email?'EMAIL:'+d.email:'',
-      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'','END:VCARD'
+    const vcf=[
+      'BEGIN:VCARD','VERSION:3.0',
+      'FN:'+d.full_name,
+      'ORG:${orgName}',
+      'TITLE:'+d.position,
+      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',
+      d.email?'EMAIL:'+d.email:'',
+      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'',
+      'END:VCARD'
     ].filter(Boolean).join('\r\n')
-    if(navigator.share&&navigator.canShare){
+    if(navigator.share){
       const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
-      if(navigator.canShare({files:[file]})){navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name));return}
+      navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name))
+      return
     }
     dl(vcf,d.full_name)
   }
@@ -264,12 +271,109 @@ function buildCardHTML(s, org, cardURL) {
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)
   }
   function openWhatsApp(){
-    const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
+    const d=window._d
+    let m=(d.mobile||'').replace(/[\s\-\(\)\.]/g,'')
+    if(m.startsWith('+'))m=m.slice(1)
+    if(m.startsWith('0'))m='60'+m.slice(1)
+    m=m.replace(/[^0-9]/g,'')
+    if(!m)return
     window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
   refreshStaff()
   refreshOrg()
+</script>
+</body>
+</html>`
+}
+
+// ── Generate smart login page ─────────────────────────────────────────────────
+function generateLoginHTML() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Digital Cards — Login</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#060b16;font-family:'Outfit',-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(232,0,29,.12) 0%,transparent 60%)}
+    .card{background:#0d1520;border-radius:24px;border:1px solid rgba(255,255,255,.07);width:100%;max-width:400px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .logo-bar{background:linear-gradient(160deg,#0d1a2e 0%,#060b16 100%);padding:28px 32px 24px;border-bottom:1px solid rgba(232,0,29,.12);text-align:center}
+    .logo-text{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;color:#f0f2f7}.logo-text span{color:#E8001D}
+    .logo-sub{font-size:11px;color:#8892a4;letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+    .form-body{padding:32px}
+    .field{margin-bottom:20px}
+    label{display:block;font-size:11px;font-weight:600;color:#8892a4;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    input{width:100%;background:#060b16;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 16px;color:#f0f2f7;font-family:'Outfit',sans-serif;font-size:14px;outline:none;transition:border-color .2s}
+    input:focus{border-color:rgba(232,0,29,.5)}
+    .login-btn{width:100%;background:linear-gradient(135deg,#E8001D,#c0001a);border:none;border-radius:12px;padding:14px;color:white;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s}
+    .login-btn:hover{transform:translateY(-1px);box-shadow:0 6px 28px rgba(232,0,29,.4)}
+    .login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .error{font-size:12px;color:#E8001D;margin-top:12px;text-align:center;min-height:18px}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <div class="logo-text"><span>RED</span>tone</div>
+    <div class="logo-sub">Digital Cards</div>
+  </div>
+  <div class="form-body">
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="handleLogin()">Sign In</button>
+    <div class="error" id="error"></div>
+  </div>
+</div>
+<script>
+  const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
+  const ANON_KEY     = 'sb_publishable_BLHChJRx8gdjb9-jaI2WBA_zClJtSqy'
+
+  async function handleLogin() {
+    const email    = document.getElementById('email').value.trim()
+    const password = document.getElementById('password').value
+    const btn      = document.getElementById('loginBtn')
+    const err      = document.getElementById('error')
+    if (!email || !password) { err.textContent = 'Please enter email and password.'; return }
+    btn.disabled = true; btn.textContent = 'Signing in...'; err.textContent = ''
+    try {
+      const authRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+        body: JSON.stringify({ email, password })
+      })
+      const auth = await authRes.json()
+      if (!auth.access_token) throw new Error(auth.error_description || 'Invalid credentials')
+      const token = auth.access_token
+      const H = { apikey: ANON_KEY, Authorization: 'Bearer ' + token }
+
+      // Check Super Admin first
+      const sa = await fetch(SUPABASE_URL + '/rest/v1/super_admins?select=id&limit=1', { headers: H }).then(r => r.json())
+      if (sa?.length > 0) { window.location.href = '/super/'; return }
+
+      // Check HR Admin / Viewer
+      const hr = await fetch(SUPABASE_URL + '/rest/v1/hr_admins?select=role,organizations(slug)&limit=1', { headers: H }).then(r => r.json())
+      if (hr?.length > 0) {
+        const orgSlug = hr[0]?.organizations?.slug || 'redtone-iot'
+        window.location.href = '/' + orgSlug + '/admin/'
+        return
+      }
+      throw new Error('No access found for this account.')
+    } catch(e) {
+      err.textContent = e.message
+      btn.disabled = false; btn.textContent = 'Sign In'
+    }
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin() })
 </script>
 </body>
 </html>`
@@ -332,6 +436,11 @@ async function main() {
   }
 
   console.log(`\n🎉 Done — ${totalGenerated} card(s) generated across ${orgs.length} org(s)`)
+
+  // Generate smart login page at dist/index.html
+  const loginHTML = generateLoginHTML()
+  fs.writeFileSync(path.join(distDir, 'index.html'), loginHTML)
+  console.log('✅  / (login page)')
 }
 
 main().catch(err => {
