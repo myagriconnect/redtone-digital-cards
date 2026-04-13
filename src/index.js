@@ -131,8 +131,6 @@ function buildCardHTML(s, org, cardURL) {
     mobile: s.mobile || '', email: s.email || '', photo_url: s.photo_url || ''
   })
 
-  // NOTE: All primary-color alpha variants are defined as CSS custom properties
-  // so the client-side refreshOrg() can apply any live changes during the session.
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -153,7 +151,6 @@ function buildCardHTML(s, org, cardURL) {
       --card-bg:#0d1520;
       --text:#f0f2f7;
       --muted:#8892a4;
-      /* Alpha variants of primary color — all updated together by refreshOrg() */
       --p10:${primary}1a;
       --p12:${primary}1f;
       --p15:${primary}26;
@@ -231,13 +228,11 @@ function buildCardHTML(s, org, cardURL) {
   const ORG_ID='${s.org_id}'
   window._d=${initData}
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
   const H={apikey:ANON_KEY,Authorization:'Bearer '+ANON_KEY}
   const $=(id)=>document.getElementById(id)
   const upd=(id,v)=>{const e=$(id);if(e&&v!=null)e.textContent=v}
   const root=document.documentElement
 
-  // Set all primary-color CSS custom properties at once
   function setPrimary(p){
     root.style.setProperty('--red',p)
     root.style.setProperty('--p10',p+'1a')
@@ -249,7 +244,6 @@ function buildCardHTML(s, org, cardURL) {
     root.style.setProperty('--p80',p+'cc')
   }
 
-  // ── Refresh staff data ───────────────────────────────────────────────────────
   async function refreshStaff(){
     try{
       const [d]=await fetch(
@@ -268,17 +262,10 @@ function buildCardHTML(s, org, cardURL) {
         const r=document.querySelector('.photo-ring')
         if(r)r.innerHTML='<img src="'+d.photo_url+'" alt="'+d.full_name+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:center top;border:3px solid var(--card-bg);display:block"/>'
       }
-      if(d.departments?.name){
-        const dept=$('staffDept')
-        if(dept)dept.textContent=d.departments.name
-      }
+      if(d.departments?.name){const dept=$('staffDept');if(dept)dept.textContent=d.departments.name}
     }catch(_){}
   }
 
-  // ── Refresh org branding (logo, colors, name) ────────────────────────────────
-  // The Worker already fetches fresh org data on every request, so colors/logo
-  // are always correct on initial load. This runs as a live-update safety net
-  // in case HR makes changes while a card is already open in someone's browser.
   async function refreshOrg(){
     try{
       const [o]=await fetch(
@@ -286,20 +273,13 @@ function buildCardHTML(s, org, cardURL) {
         {headers:H}
       ).then(r=>r.json())
       if(!o)return
-
-      // Update brand colors
       if(o.primary_color)setPrimary(o.primary_color)
       if(o.secondary_color)root.style.setProperty('--gold',o.secondary_color)
-
-      // Update logo bar
       const lb=$('logoBar')
-      if(lb&&o.logo_url){
-        lb.innerHTML='<img src="'+o.logo_url+'" alt="'+o.name+'" id="orgLogo" style="height:28px;width:auto;display:block"/>'
-      }else if(lb&&o.name&&!o.logo_url){
-        lb.innerHTML='<div class="logo-text" id="orgLogoText"><span>'+o.name.slice(0,3).toUpperCase()+'</span>'+o.name.slice(3)+'</div>'
+      if(lb){
+        if(o.logo_url)lb.innerHTML='<img src="'+o.logo_url+'" alt="'+o.name+'" id="orgLogo" style="height:28px;width:auto;display:block"/>'
+        else if(o.name)lb.innerHTML='<div class="logo-text" id="orgLogoText"><span>'+o.name.slice(0,3).toUpperCase()+'</span>'+o.name.slice(3)+'</div>'
       }
-
-      // Update org name in staff-meta, preserving dept tag
       const sm=$('staffMeta')
       if(sm&&o.name){
         const dept=sm.querySelector('.dept')
@@ -308,7 +288,6 @@ function buildCardHTML(s, org, cardURL) {
     }catch(_){}
   }
 
-  // ── vCard save ───────────────────────────────────────────────────────────────
   function saveContact(){
     const d=window._d
     const vcf=['BEGIN:VCARD','VERSION:3.0','FN:'+d.full_name,'ORG:${orgName}','TITLE:'+d.position,
@@ -333,7 +312,6 @@ function buildCardHTML(s, org, cardURL) {
     window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
-  // Run both refreshes on every page load — parallel, non-blocking
   refreshStaff()
   refreshOrg()
 </script>
@@ -346,7 +324,6 @@ export default {
     const url  = new URL(request.url)
     const path = url.pathname
 
-    // ── Static-only routes — always serve from pre-built assets ──────────────
     const staticPrefixes = ['/admin', '/assets', '/favicon']
     if (staticPrefixes.some(p => path.startsWith(p))) {
       return env.ASSETS.fetch(request)
@@ -364,9 +341,6 @@ export default {
 
     const segments = path.replace(/^\/|\/$/g, '').split('/')
 
-    // ── Card pages: always generate dynamically from Supabase ─────────────────
-    // We intentionally skip env.ASSETS for card paths so that logo/color
-    // changes made by HR take effect on every new page load — no rebuild needed.
     if (segments.length === 2) {
       const [orgSlug, cardSlug] = segments
       if (!orgSlug || !cardSlug || cardSlug.includes('.')) return env.ASSETS.fetch(request)
@@ -423,7 +397,6 @@ export default {
       return Response.redirect(`${url.origin}/${orgSlug}/${cardSlug}/`, 301)
     }
 
-    // Fallback — serve anything else from static assets
     return env.ASSETS.fetch(request)
   }
 }
