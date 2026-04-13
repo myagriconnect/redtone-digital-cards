@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://omuopaupndqxwsuyvtoy.supabase.co'
-// Use the legacy JWT anon key — required for server-side PostgREST calls from Worker s
+// Use the legacy JWT anon key — required for server-side PostgREST calls from Workers
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tdW9wYXVwbmRxeHdzdXl2dG95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTA3OTgsImV4cCI6MjA5MDI4Njc5OH0.b2IjAivQbCMtamvkHEZ_RYo1g0t9HILiRHW_PfM_23o'
 
 async function sbFetch(path) {
@@ -507,23 +507,42 @@ function buildCardHTML(s, org, cardURL) {
     }catch(_){}
   }
 
-  // ── vCard save — server-side endpoint for reliable mobile download ───────────
+  // ── vCard save — native share API, falls back to download ───────────────────
   function saveContact(){
-    // Navigate to the server-side vCard endpoint which sends proper
-    // Content-Disposition headers — works on iOS Safari, Android, desktop.
-    window.location.href=CARD_URL+'vcard'
+    const d=window._d
+    const vcf=[
+      'BEGIN:VCARD','VERSION:3.0',
+      'FN:'+d.full_name,
+      'ORG:'+ORG_ID,
+      'TITLE:'+d.position,
+      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',
+      d.email?'EMAIL:'+d.email:'',
+      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'',
+      'END:VCARD'
+    ].filter(Boolean).join('\r\n')
+    if(navigator.share){
+      const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
+      navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name))
+      return
+    }
+    dl(vcf,d.full_name)
+  }
+  function dl(vcf,name){
+    const b=new Blob([vcf],{type:'text/vcard'})
+    const u=URL.createObjectURL(b)
+    const a=document.createElement('a')
+    a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)
   }
   function openWhatsApp(){
     const d=window._d
     if(!d)return
-    // Normalise number: strip spaces/dashes/parens, remove leading +,
-    // convert local Malaysian 0xx format → 60xx (country code 60).
     let m=(d.mobile||'').replace(/[\s\-\(\)\.]/g,'')
     if(m.startsWith('+'))m=m.slice(1)
     if(m.startsWith('0'))m='60'+m.slice(1)
     m=m.replace(/[^0-9]/g,'')
     if(!m)return
-    window.open('https://wa.me/'+m,'_blank')
+    window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
   }
 
   refreshStaff()
@@ -551,7 +570,11 @@ export default {
     }
 
     if (path === '/') {
-      return Response.redirect(`${url.origin}/admin/`, 302)
+      return env.ASSETS.fetch(new Request(`${url.origin}/index.html`, request))
+    }
+
+    if (path === '/super' || path.startsWith('/super/')) {
+      return env.ASSETS.fetch(new Request(`${url.origin}/super/index.html`, request))
     }
 
     const segments = path.replace(/^\/|\/$/g, '').split('/')
