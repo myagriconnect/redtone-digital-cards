@@ -257,10 +257,35 @@ function buildCardHTML(s, org, cardURL) {
       padding:clamp(14px,3.5vw,20px) clamp(18px,5vw,28px) clamp(12px,3vw,16px);
       border-bottom:1px solid var(--p12);
       flex-shrink:0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
     .logo-bar img{height:clamp(24px,5vw,32px);width:auto;display:block}
     .logo-text{font-family:'Bebas Neue',sans-serif;font-size:clamp(20px,5vw,26px);letter-spacing:2px;color:var(--text)}
     .logo-text span{color:var(--red)}
+
+    /* ── Refresh button ─────────────────────────────────────────────────────── */
+    .refresh-btn{
+      width:30px;height:30px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+      color:var(--muted);
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;
+      flex-shrink:0;
+      transition:background .15s,color .15s,border-color .15s;
+      -webkit-tap-highlight-color:transparent;
+      padding:0;
+    }
+    .refresh-btn:hover{background:var(--p10);border-color:var(--p20);color:var(--red)}
+    .refresh-btn:active{transform:scale(.92)}
+    .refresh-btn svg{width:14px;height:14px;transition:transform .4s ease}
+    .refresh-btn.spinning svg{animation:spin .7s linear infinite}
+    .refresh-btn.done{color:#22c55e;border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.08)}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
     /* ── Identity hero ──────────────────────────────────────────────────────── */
     .identity{
@@ -396,7 +421,15 @@ function buildCardHTML(s, org, cardURL) {
 </head>
 <body>
 <div class="card">
-  <div class="logo-bar" id="logoBar">${logoBar}</div>
+  <div class="logo-bar">
+    <div id="logoBar">${logoBar}</div>
+    <button class="refresh-btn" id="refreshBtn" onclick="handleRefresh()" title="Refresh card data" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+    </button>
+  </div>
   <div class="identity">
     <div class="photo-ring">${photoHtml}</div>
     <div class="info">
@@ -542,6 +575,22 @@ function buildCardHTML(s, org, cardURL) {
   function openWhatsApp(){
     const m=(window._d.mobile||'').replace(/[^0-9]/g,'')
     window.open('https://wa.me/'+m+'?text='+encodeURIComponent('Hi! Here is my digital card: '+CARD_URL),'_blank')
+  }
+
+  // ── Refresh button ───────────────────────────────────────────────────────────
+  async function handleRefresh(){
+    const btn=$('refreshBtn')
+    if(!btn||btn.classList.contains('spinning'))return
+    btn.classList.add('spinning')
+    btn.classList.remove('done')
+    try{
+      await Promise.all([refreshStaff(),refreshOrg()])
+      btn.classList.remove('spinning')
+      btn.classList.add('done')
+      setTimeout(()=>btn.classList.remove('done'),2000)
+    }catch(_){
+      btn.classList.remove('spinning')
+    }
   }
 
   refreshStaff()
