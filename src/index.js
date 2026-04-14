@@ -507,32 +507,11 @@ function buildCardHTML(s, org, cardURL) {
     }catch(_){}
   }
 
-  // ── vCard save — native share API, falls back to download ───────────────────
+  // ── vCard save — server-side endpoint for reliable mobile download ───────────
   function saveContact(){
-    const d=window._d
-    const vcf=[
-      'BEGIN:VCARD','VERSION:3.0',
-      'FN:'+d.full_name,
-      'ORG:'+ORG_ID,
-      'TITLE:'+d.position,
-      d.mobile?'TEL;TYPE=CELL:'+d.mobile:'',
-      d.email?'EMAIL:'+d.email:'',
-      d.photo_url?'PHOTO;VALUE=URL:'+d.photo_url:'',
-      'END:VCARD'
-    ].filter(Boolean).join('\r\n')
-    if(navigator.share){
-      const file=new File([vcf],d.full_name.replace(/\s+/g,'_')+'.vcf',{type:'text/vcard'})
-      navigator.share({files:[file]}).catch(()=>dl(vcf,d.full_name))
-      return
-    }
-    dl(vcf,d.full_name)
-  }
-  function dl(vcf,name){
-    const b=new Blob([vcf],{type:'text/vcard'})
-    const u=URL.createObjectURL(b)
-    const a=document.createElement('a')
-    a.href=u;a.download=name.replace(/\s+/g,'_')+'.vcf'
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u)
+    // Navigate to /:org/:slug/vcard — the Worker returns the .vcf file with
+    // Content-Disposition: attachment, which works on iOS Safari, Android & desktop.
+    window.location.href=CARD_URL+'vcard'
   }
   function openWhatsApp(){
     const d=window._d
