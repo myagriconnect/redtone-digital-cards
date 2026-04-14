@@ -507,14 +507,13 @@ function buildCardHTML(s, org, cardURL) {
     }catch(_){}
   }
 
-  // ── vCard save — server-side endpoint for reliable mobile download ───────────
-  function saveContact(){
-    // Open in a new tab so the user stays on the card page.
-    // The Worker serves /:org/:slug/vcard with Content-Disposition: attachment,
-    // which triggers a save/download on iOS Safari, Android Chrome & desktop.
+  // ── Buttons — attached directly to window to guarantee global scope ──────────
+  window.saveContact=function(){
+    // Opens the Worker's vCard endpoint in a new tab.
+    // Content-Disposition: attachment triggers save on iOS Safari, Android & desktop.
     window.open(CARD_URL+'vcard','_blank')
   }
-  function openWhatsApp(){
+  window.openWhatsApp=function(){
     const d=window._d
     if(!d)return
     let m=(d.mobile||'').replace(/[\s\-\(\)\.]/g,'')
