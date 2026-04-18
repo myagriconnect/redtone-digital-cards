@@ -35,6 +35,37 @@ async function isOrgActive(orgId) {
   } catch { return true }
 }
 
+function buildOpenInSafariHTML(targetUrl) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Open in Safari</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:#060b16;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:32px;text-align:center}
+    .box{max-width:320px;width:100%}
+    .icon{font-size:56px;margin-bottom:20px}
+    h1{color:#f0f2f7;font-size:22px;font-weight:700;margin-bottom:10px}
+    p{color:#8892a4;font-size:14px;line-height:1.7;margin-bottom:28px}
+    .btn{display:block;background:#E8001D;color:white;padding:15px 24px;border-radius:14px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:20px}
+    .hint{color:#8892a4;font-size:12px;line-height:1.8}
+    .hint strong{color:#f0f2f7}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">🌐</div>
+    <h1>Open in Safari</h1>
+    <p>This digital card needs to be opened in Safari for the full experience.</p>
+    <a class="btn" href="${targetUrl}" target="_blank" rel="noopener">Tap here to Open in Safari</a>
+    <p class="hint">Or tap <strong>···</strong> at the top right of WhatsApp<br/>then select <strong>"Open in Safari"</strong></p>
+  </div>
+</body>
+</html>`
+}
+
 function buildExpiredHTML(orgName) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -535,6 +566,17 @@ export default {
   async fetch(request, env, ctx) {
     const url  = new URL(request.url)
     const path = url.pathname
+    const ua   = request.headers.get('user-agent') || ''
+
+    // ── WhatsApp iOS in-app browser — redirect to Safari ─────────────────────
+    // WhatsApp's built-in browser on iPhone/iPad cannot render Cloudflare Worker
+    // pages and shows "Loading Error". Intercept and serve a simple prompt page
+    // so the user can open the card in Safari with one tap.
+    if (/WhatsApp/.test(ua) && /iPhone|iPad|iPod/.test(ua)) {
+      return new Response(buildOpenInSafariHTML(url.href), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+      })
+    }
 
     // ── Static-only routes — always serve from pre-built assets ──────────────
     const staticPrefixes = ['/admin', '/assets', '/favicon']
