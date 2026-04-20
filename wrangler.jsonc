@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "redtone-digital-cards",
+  "name": "redtone-digital-cards-test",
   "main": "src/index.js",
   "compatibility_date": "2025-09-27",
   "observability": {
